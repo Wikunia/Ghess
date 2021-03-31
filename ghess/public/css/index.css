@@ -1,0 +1,29 @@
+#board {
+    margin-left: 100px;
+    margin-top: 5vmin;
+    position: relative;
+}
+
+.board_row {
+    display: block;
+}
+
+.square {
+    width: 10vmin;
+    height: 10vmin;
+    display: inline-block;
+}
+
+.piece img {
+    position: absolute;
+    width: 10vmin;
+    height: 10vmin;
+}
+
+.square_black {
+    background-color: darkgreen;
+}
+
+.square_white {
+    background-color: white;
+}
