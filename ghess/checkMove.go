@@ -75,7 +75,48 @@ func isLegalKing(m *JSONMove) bool {
 	toY := m.ToY
 	diffx := abs(toX - fromX)
 	diffy := abs(toY - fromY)
-	return diffx <= 1 && diffy <= 1
+	if diffx <= 1 && diffy <= 1 {
+		return true
+	}
+	diffx = toX - fromX
+	color := getPieceColor(m.PieceId)
+	if !color {
+		if fromY != 8 {
+			return false
+		}
+		// check king side castle
+		if diffx == 2 {
+			if !currentBoard.white_castle_king {
+				return false
+			}
+			return isFree(fromY, fromX+1) && isFree(fromY, fromX+2)
+		} else if diffx == -2 { // check queen side castle
+			if !currentBoard.white_castle_queen {
+				return false
+			}
+			return isFree(fromY, fromX-1) && isFree(fromY, fromX-2) && isFree(fromY, fromX-3)
+		}
+		return false
+	} else {
+		if fromY != 1 {
+			return false
+		}
+		// check king side castle
+		if diffx == 2 {
+			if !currentBoard.black_castle_king {
+				return false
+			}
+			return isFree(fromY, fromX+1) && isFree(fromY, fromX+2)
+		} else if diffx == -2 { // check queen side castle
+			if !currentBoard.black_castle_queen {
+				return false
+			}
+			return isFree(fromY, fromX-1) && isFree(fromY, fromX-2) && isFree(fromY, fromX-3)
+		}
+		return false
+	}
+
+	return false
 }
 
 func isLegalInY(m *JSONMove) bool {

@@ -25,9 +25,13 @@ type Piece struct {
 }
 
 type Board struct {
-	position [8][8]int
-	pieces   map[int]Piece
-	color    bool
+	position           [8][8]int
+	pieces             map[int]Piece
+	color              bool
+	white_castle_king  bool
+	white_castle_queen bool
+	black_castle_king  bool
+	black_castle_queen bool
 }
 
 type JSONMove struct {
@@ -122,7 +126,15 @@ func setFen(fen string) {
 		color = true
 	}
 
-	currentBoard = Board{position: position, pieces: pieces, color: color}
+	currentBoard = Board{
+		position:           position,
+		pieces:             pieces,
+		color:              color,
+		white_castle_king:  strings.ContainsRune(parts[2], 'K'),
+		white_castle_queen: strings.ContainsRune(parts[2], 'Q'),
+		black_castle_king:  strings.ContainsRune(parts[2], 'k'),
+		black_castle_queen: strings.ContainsRune(parts[2], 'q'),
+	}
 }
 
 func fillMove(m *JSONMove) error {
@@ -136,8 +148,9 @@ func fillMove(m *JSONMove) error {
 }
 
 func move(m *JSONMove) error {
-	fromX := currentBoard.pieces[m.PieceId].position.x
-	fromY := currentBoard.pieces[m.PieceId].position.y
+	piece := currentBoard.pieces[m.PieceId]
+	fromX := piece.position.x
+	fromY := piece.position.y
 	currentBoard.position[m.ToY-1][m.ToX-1] = currentBoard.position[fromY-1][fromX-1]
 	currentBoard.position[fromY-1][fromX-1] = 0
 	if thisPiece, ok := currentBoard.pieces[m.PieceId]; ok {
@@ -150,6 +163,17 @@ func move(m *JSONMove) error {
 	if m.CaptureId != 0 {
 		delete(currentBoard.pieces, m.CaptureId)
 	}
+
+	// disallow castling
+	if isKing(piece) {
+		if !piece.color {
+			currentBoard.white_castle_king = false
+			currentBoard.white_castle_queen = false
+		} else {
+			currentBoard.black_castle_king = false
+			currentBoard.black_castle_queen = false
+		}
+	}
 	return nil
 }
 
@@ -159,6 +183,38 @@ func engineMove() JSONMove {
 
 func getPieceColor(piece int) bool {
 	return currentBoard.pieces[piece].color
+}
+
+func getRookMoveIfCastle(m *JSONMove) (JSONMove, bool) {
+	piece := currentBoard.pieces[m.PieceId]
+	rm := JSONMove{PieceId: 0, CaptureId: 0, ToX: 0, ToY: 0}
+	if !isKing(piece) {
+		return rm, false
+	}
+	color := piece.color
+	fromX := currentBoard.pieces[m.PieceId].position.x
+	toX := m.ToX
+	diffx := toX - fromX
+	fmt.Println("diffx: ", diffx)
+
+	if !color {
+		if diffx == 2 {
+			rook_id := currentBoard.position[7][7]
+			rm = JSONMove{PieceId: rook_id, CaptureId: 0, ToX: 6, ToY: 8}
+		} else {
+			rook_id := currentBoard.position[7][0]
+			rm = JSONMove{PieceId: rook_id, CaptureId: 0, ToX: 4, ToY: 8}
+		}
+	} else {
+		if diffx == 2 {
+			rook_id := currentBoard.position[0][7]
+			rm = JSONMove{PieceId: rook_id, CaptureId: 0, ToX: 6, ToY: 1}
+		} else {
+			rook_id := currentBoard.position[0][0]
+			rm = JSONMove{PieceId: rook_id, CaptureId: 0, ToX: 4, ToY: 1}
+		}
+	}
+	return rm, true
 }
 
 func Run() {
@@ -220,6 +276,19 @@ func Run() {
 				legal := isLegal(&moveObj)
 
 				if legal {
+					rm, isCastle := getRookMoveIfCastle(&moveObj)
+					if isCastle {
+						err = move(&rm)
+						if err != nil {
+							log.Println("read:", err)
+							break
+						}
+						err = c.WriteJSON(rm)
+						if err != nil {
+							log.Println("read:", err)
+							break
+						}
+					}
 					err = move(&moveObj)
 					if err != nil {
 						log.Println("read:", err)
