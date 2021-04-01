@@ -19,7 +19,9 @@ function movePiece(move) {
 
         piece.style.left = capturedPiece.style.left;
         piece.style.top = capturedPiece.style.top;
-    } else {
+    } 
+    // can move to this position if en passant
+    if (move.toX != 0) {
         piece.style.left = ((move.toX-1)*10)+"vmin";
         piece.style.top = ((move.toY-1)*10)+"vmin";
     }

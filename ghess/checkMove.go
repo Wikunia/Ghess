@@ -5,33 +5,34 @@ import (
 	"unicode"
 )
 
-func isFree(y, x int) bool {
-	return currentBoard.position[y-1][x-1] == 0
+func (board *Board) isFree(y, x int) bool {
+	return board.position[y-1][x-1] == 0
 }
 
-func isLegalPawn(m *JSONMove) bool {
-	color := currentBoard.color
+func (board *Board) isLegalPawn(m *JSONMove) bool {
+	color := board.color
 	if !color {
-		return isLegalPawnWhite(m)
+		return board.isLegalPawnWhite(m)
 	}
-	return isLegalPawnBlack(m)
-
+	return board.isLegalPawnBlack(m)
 }
 
-func isLegalPawnWhite(m *JSONMove) bool {
-	fromX := currentBoard.pieces[m.PieceId].position.x
-	fromY := currentBoard.pieces[m.PieceId].position.y
+func (board *Board) isLegalPawnWhite(m *JSONMove) bool {
+	fromX := board.pieces[m.PieceId].position.x
+	fromY := board.pieces[m.PieceId].position.y
 
 	// normal move
 	if m.CaptureId == 0 {
 		if fromX != m.ToX {
-			return false
+			// check en passant
+			diff := abs(fromX - m.ToX)
+			return diff == 1 && fromY-m.ToY == 1 && board.en_passant_position.x == m.ToX && board.en_passant_position.y == m.ToY
 		}
 		if fromY-m.ToY == 2 {
 			if fromY != 7 {
 				return false
 			}
-			return isFree(fromY-1, fromX)
+			return board.isFree(fromY-1, fromX)
 		}
 		return fromY-m.ToY == 1
 	} else { // capture
@@ -43,20 +44,22 @@ func isLegalPawnWhite(m *JSONMove) bool {
 	return false
 }
 
-func isLegalPawnBlack(m *JSONMove) bool {
-	fromX := currentBoard.pieces[m.PieceId].position.x
-	fromY := currentBoard.pieces[m.PieceId].position.y
+func (board *Board) isLegalPawnBlack(m *JSONMove) bool {
+	fromX := board.pieces[m.PieceId].position.x
+	fromY := board.pieces[m.PieceId].position.y
 
 	// normal move
 	if m.CaptureId == 0 {
 		if fromX != m.ToX {
-			return false
+			// check en passant
+			diff := abs(fromX - m.ToX)
+			return diff == 1 && m.ToY-fromY == 1 && board.en_passant_position.x == m.ToX && board.en_passant_position.y == m.ToY
 		}
 		if m.ToY-fromY == 2 {
 			if fromY != 2 {
 				return false
 			}
-			return isFree(fromY+1, fromX)
+			return board.isFree(fromY+1, fromX)
 		}
 		return m.ToY-fromY == 1
 	} else { // capture
@@ -68,9 +71,9 @@ func isLegalPawnBlack(m *JSONMove) bool {
 	return false
 }
 
-func isLegalKing(m *JSONMove) bool {
-	fromX := currentBoard.pieces[m.PieceId].position.x
-	fromY := currentBoard.pieces[m.PieceId].position.y
+func (board *Board) isLegalKing(m *JSONMove) bool {
+	fromX := board.pieces[m.PieceId].position.x
+	fromY := board.pieces[m.PieceId].position.y
 	toX := m.ToX
 	toY := m.ToY
 	diffx := abs(toX - fromX)
@@ -79,22 +82,22 @@ func isLegalKing(m *JSONMove) bool {
 		return true
 	}
 	diffx = toX - fromX
-	color := getPieceColor(m.PieceId)
+	color := board.getPieceColor(m.PieceId)
 	if !color {
 		if fromY != 8 {
 			return false
 		}
 		// check king side castle
 		if diffx == 2 {
-			if !currentBoard.white_castle_king {
+			if !board.white_castle_king {
 				return false
 			}
-			return isFree(fromY, fromX+1) && isFree(fromY, fromX+2)
+			return board.isFree(fromY, fromX+1) && board.isFree(fromY, fromX+2)
 		} else if diffx == -2 { // check queen side castle
-			if !currentBoard.white_castle_queen {
+			if !board.white_castle_queen {
 				return false
 			}
-			return isFree(fromY, fromX-1) && isFree(fromY, fromX-2) && isFree(fromY, fromX-3)
+			return board.isFree(fromY, fromX-1) && board.isFree(fromY, fromX-2) && board.isFree(fromY, fromX-3)
 		}
 		return false
 	} else {
@@ -103,15 +106,15 @@ func isLegalKing(m *JSONMove) bool {
 		}
 		// check king side castle
 		if diffx == 2 {
-			if !currentBoard.black_castle_king {
+			if !board.black_castle_king {
 				return false
 			}
-			return isFree(fromY, fromX+1) && isFree(fromY, fromX+2)
+			return board.isFree(fromY, fromX+1) && board.isFree(fromY, fromX+2)
 		} else if diffx == -2 { // check queen side castle
-			if !currentBoard.black_castle_queen {
+			if !board.black_castle_queen {
 				return false
 			}
-			return isFree(fromY, fromX-1) && isFree(fromY, fromX-2) && isFree(fromY, fromX-3)
+			return board.isFree(fromY, fromX-1) && board.isFree(fromY, fromX-2) && board.isFree(fromY, fromX-3)
 		}
 		return false
 	}
@@ -119,9 +122,9 @@ func isLegalKing(m *JSONMove) bool {
 	return false
 }
 
-func isLegalInY(m *JSONMove) bool {
-	fromX := currentBoard.pieces[m.PieceId].position.x
-	fromY := currentBoard.pieces[m.PieceId].position.y
+func (board *Board) isLegalInY(m *JSONMove) bool {
+	fromX := board.pieces[m.PieceId].position.x
+	fromY := board.pieces[m.PieceId].position.y
 	toX := m.ToX
 	toY := m.ToY
 	diffx := abs(toX - fromX)
@@ -135,16 +138,16 @@ func isLegalInY(m *JSONMove) bool {
 	}
 	for dy := 1; dy < diffy; dy++ {
 		y := fromY + f*dy
-		if !isFree(y, fromX) {
+		if !board.isFree(y, fromX) {
 			return false
 		}
 	}
 	return true
 }
 
-func isLegalInX(m *JSONMove) bool {
-	fromX := currentBoard.pieces[m.PieceId].position.x
-	fromY := currentBoard.pieces[m.PieceId].position.y
+func (board *Board) isLegalInX(m *JSONMove) bool {
+	fromX := board.pieces[m.PieceId].position.x
+	fromY := board.pieces[m.PieceId].position.y
 	toX := m.ToX
 	toY := m.ToY
 	diffx := abs(toX - fromX)
@@ -158,16 +161,16 @@ func isLegalInX(m *JSONMove) bool {
 	}
 	for dx := 1; dx < diffx; dx++ {
 		x := fromX + f*dx
-		if !isFree(fromY, x) {
+		if !board.isFree(fromY, x) {
 			return false
 		}
 	}
 	return true
 }
 
-func isLegalInDiag(m *JSONMove) bool {
-	fromX := currentBoard.pieces[m.PieceId].position.x
-	fromY := currentBoard.pieces[m.PieceId].position.y
+func (board *Board) isLegalInDiag(m *JSONMove) bool {
+	fromX := board.pieces[m.PieceId].position.x
+	fromY := board.pieces[m.PieceId].position.y
 	toX := m.ToX
 	toY := m.ToY
 	diffx := abs(toX - fromX)
@@ -186,16 +189,16 @@ func isLegalInDiag(m *JSONMove) bool {
 	for d := 1; d < diffx; d++ {
 		x := fromX + fx*d
 		y := fromY + fy*d
-		if !isFree(y, x) {
+		if !board.isFree(y, x) {
 			return false
 		}
 	}
 	return true
 }
 
-func isLegalKnight(m *JSONMove) bool {
-	fromX := currentBoard.pieces[m.PieceId].position.x
-	fromY := currentBoard.pieces[m.PieceId].position.y
+func (board *Board) isLegalKnight(m *JSONMove) bool {
+	fromX := board.pieces[m.PieceId].position.x
+	fromY := board.pieces[m.PieceId].position.y
 	toX := m.ToX
 	toY := m.ToY
 	diffx := abs(toX - fromX)
@@ -203,11 +206,11 @@ func isLegalKnight(m *JSONMove) bool {
 	return (diffx == 1 && diffy == 2) || (diffx == 2 && diffy == 1)
 }
 
-func isLegal(m *JSONMove) bool {
-	pieceType := unicode.ToLower(rune(currentBoard.pieces[m.PieceId].c))
+func (board *Board) isLegal(m *JSONMove) bool {
+	pieceType := unicode.ToLower(rune(board.pieces[m.PieceId].c))
 	// check that the other piece is of the other color
 	if m.CaptureId != 0 {
-		if currentBoard.pieces[m.CaptureId].color == currentBoard.pieces[m.PieceId].color {
+		if board.pieces[m.CaptureId].color == board.pieces[m.PieceId].color {
 			return false
 		}
 	}
@@ -215,17 +218,17 @@ func isLegal(m *JSONMove) bool {
 	fmt.Println(pieceType == 'p')
 	switch pieceType {
 	case 'p':
-		return isLegalPawn(m)
+		return board.isLegalPawn(m)
 	case 'k':
-		return isLegalKing(m)
+		return board.isLegalKing(m)
 	case 'q':
-		return isLegalInX(m) || isLegalInY(m) || isLegalInDiag(m)
+		return board.isLegalInX(m) || board.isLegalInY(m) || board.isLegalInDiag(m)
 	case 'r':
-		return isLegalInX(m) || isLegalInY(m)
+		return board.isLegalInX(m) || board.isLegalInY(m)
 	case 'b':
-		return isLegalInDiag(m)
+		return board.isLegalInDiag(m)
 	case 'n':
-		return isLegalKnight(m)
+		return board.isLegalKnight(m)
 	}
 	return false
 }
