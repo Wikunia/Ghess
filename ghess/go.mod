@@ -4,9 +4,8 @@ go 1.16
 
 require (
 	github.com/Djarvur/go-err113 v0.1.0 // indirect
-	github.com/gofiber/fiber/v2 v2.7.1 // indirect
-	github.com/gofiber/template v1.6.8 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/gofiber/fiber/v2 v2.7.1
+	github.com/gofiber/template v1.6.8
 	github.com/golangci/golangci-lint v1.39.0 // indirect
 	github.com/google/go-cmp v0.5.5 // indirect
 	github.com/gostaticanalysis/analysisutil v0.7.1 // indirect
@@ -28,8 +27,7 @@ require (
 	github.com/valyala/fasthttp v1.23.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	golang.org/x/mod v0.4.2 // indirect
-	golang.org/x/sys v0.0.0-20210330210617-4fbd30eecc44 // indirect
+	golang.org/x/sys v0.0.0-20210331175145-43e1dd70ce54 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
-	sourcegraph.com/sqs/pbtypes v1.0.0 // indirect
 )

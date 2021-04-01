@@ -6,9 +6,11 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"unicode"
 
 	fiber "github.com/gofiber/fiber/v2"
 	"github.com/gofiber/template/mustache"
+	websocket "github.com/gofiber/websocket/v2"
 )
 
 type Position struct {
@@ -16,14 +18,28 @@ type Position struct {
 	y int
 }
 
+type Piece struct {
+	position Position
+	c        rune
+	color    bool
+}
+
 type Board struct {
-	fen            string
-	position       [8][8]rune
-	piece2Position map[int]Position
-	piece2Rune     map[int]rune
+	position [8][8]int
+	pieces   map[int]Piece
+	color    bool
+}
+
+type JSONMove struct {
+	PieceId   int `json:"pieceId"`
+	CaptureId int `json:"captureId"`
+	ToY       int `json:"toY"`
+	ToX       int `json:"toX"`
 }
 
 var currentBoard Board
+var websocketConns map[int]*websocket.Conn
+var nextConnectionId = 1
 
 func short2full_name() map[rune]string {
 	return map[rune]string{
@@ -43,17 +59,18 @@ func short2full_name() map[rune]string {
 }
 
 func displayFen(fen string) string {
-	currentBoard = parseFen(fen)
+	setFen(fen)
 	return displayBoard(currentBoard)
 }
 
 func displayBoard(board Board) string {
 	result := displayGround()
 	short2full := short2full_name()
-	for pieceId, position := range currentBoard.piece2Position {
-		pieceName := short2full[currentBoard.piece2Rune[pieceId]]
-		left := strconv.Itoa(position.x * 10)
-		top := strconv.Itoa(position.y * 10)
+	for pieceId, piece := range currentBoard.pieces {
+		pieceName := short2full[piece.c]
+		position := piece.position
+		left := strconv.Itoa((position.x - 1) * 10)
+		top := strconv.Itoa((position.y - 1) * 10)
 		result += `<div class="piece" draggable="true" ondragstart="onDragStart(event);" ondrop="onDrop(event);" ondragover="onDragOver(event);"> 
 				<img id="piece_` + strconv.Itoa(pieceId) + `" src="images/` + pieceName + `.png" style="left: ` + left + `vmin; top: ` + top + `vmin;"/>
 			</div>`
@@ -64,9 +81,9 @@ func displayBoard(board Board) string {
 func displayGround() string {
 	result := ""
 	colors := []string{"white", "black"}
-	for i := 0; i < 8; i++ {
+	for i := 1; i < 9; i++ {
 		result += `<div class="board_row">`
-		for j := 0; j < 8; j++ {
+		for j := 1; j < 9; j++ {
 			color := colors[(i+j)%2]
 			result += `<div id="square_` + strconv.Itoa(i) + `_` + strconv.Itoa(j) + `" class="square square_` + color + `" ondrop="onDrop(event);" ondragover="onDragOver(event);"> </div>`
 		}
@@ -75,90 +92,151 @@ func displayGround() string {
 	return result
 }
 
-func parseFen(fen string) Board {
+func setFen(fen string) {
 	parts := strings.Split(fen, " ")
-	pieces := parts[0]
-	rows := strings.Split(pieces, "/")
-	var position [8][8]rune
-	piece2Position := make(map[int]Position)
-	piece2Rune := make(map[int]rune)
-	pieceId := 0
+	fen_pieces := parts[0]
+	rows := strings.Split(fen_pieces, "/")
+	var position [8][8]int
+	pieces := make(map[int]Piece)
+	pieceId := 1
 	for r, row := range rows {
 		cpos := 0
 		for _, p := range row {
 			if (p > 'a' && p < 'z') || (p > 'A' && p < 'Z') {
-				position[r][cpos] = p
-				piece2Position[pieceId] = Position{x: cpos, y: r}
-				piece2Rune[pieceId] = p
+				position[r][cpos] = pieceId
+				pieces[pieceId] = Piece{position: Position{x: cpos + 1, y: r + 1}, c: p, color: p == unicode.ToLower(p)}
 				pieceId += 1
 				cpos += 1
 			} else {
 				// convert rune to integer
 				n, _ := strconv.Atoi(string(p))
 				for i := 0; i < n; i++ {
-					position[r][cpos+i] = '0'
+					position[r][cpos+i] = 0
 				}
 				cpos += n
 			}
 		}
 	}
-	return Board{fen: fen, position: position, piece2Position: piece2Position, piece2Rune: piece2Rune}
+	color := false
+	if parts[1][0] == 'b' {
+		color = true
+	}
+
+	currentBoard = Board{position: position, pieces: pieces, color: color}
 }
 
-func apiMakeMove(c *fiber.Ctx, capture bool) error {
-	type JSONMove struct {
-		PieceId   int `json:"pieceId"`
-		captureId int `json:"captureId"`
-		ToY       int `json:"to_y"`
-		ToX       int `json:"to_x"`
+func fillMove(m *JSONMove) error {
+	if m.ToX == 0 {
+		captureId := m.CaptureId
+		m.ToX = currentBoard.pieces[captureId].position.x
+		m.ToY = currentBoard.pieces[captureId].position.y
 	}
 
-	var move JSONMove
-	fmt.Println(string(c.Body()))
+	return nil
+}
 
-	err := c.BodyParser(&move)
-
-	// if error
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"message": "Cannot parse JSON",
-		})
-	}
-
-	if !capture {
-		makeMove(move.PieceId, move.ToY, move.ToX)
+func move(m *JSONMove) error {
+	fromX := currentBoard.pieces[m.PieceId].position.x
+	fromY := currentBoard.pieces[m.PieceId].position.y
+	currentBoard.position[m.ToY-1][m.ToX-1] = currentBoard.position[fromY-1][fromX-1]
+	currentBoard.position[fromY-1][fromX-1] = 0
+	if thisPiece, ok := currentBoard.pieces[m.PieceId]; ok {
+		thisPiece.position.x = m.ToX
+		thisPiece.position.y = m.ToY
+		currentBoard.pieces[m.PieceId] = thisPiece
 	} else {
-		makeCapture(move.PieceId, move.captureId)
+		return fmt.Errorf("Should exist")
 	}
-
-	return c.SendString("success")
+	if m.CaptureId != 0 {
+		delete(currentBoard.pieces, m.CaptureId)
+	}
+	return nil
 }
 
-func makeMove(pieceId, toY, toX int) string {
-	fromX := currentBoard.piece2Position[pieceId].x
-	fromY := currentBoard.piece2Position[pieceId].y
-	currentBoard.position[toY][toX] = currentBoard.position[fromY][fromX]
-	currentBoard.position[fromY][fromX] = '0'
-	currentBoard.piece2Position[pieceId] = Position{x: toX, y: toY}
-	return displayBoard(currentBoard)
+func engineMove() JSONMove {
+	return JSONMove{PieceId: 13, CaptureId: 0, ToY: 4, ToX: 5}
 }
 
-func makeCapture(pieceId, captureId int) string {
-	fromX := currentBoard.piece2Position[pieceId].x
-	fromY := currentBoard.piece2Position[pieceId].y
-	toX := currentBoard.piece2Position[captureId].x
-	toY := currentBoard.piece2Position[captureId].y
-	currentBoard.position[toY][toX] = currentBoard.position[fromY][fromX]
-	currentBoard.position[fromY][fromX] = '0'
-	currentBoard.piece2Position[pieceId] = Position{x: toX, y: toY}
-	delete(currentBoard.piece2Position, pieceId)
-	delete(currentBoard.piece2Rune, pieceId)
-	return displayBoard(currentBoard)
+func getPieceColor(piece int) bool {
+	return currentBoard.pieces[piece].color
+}
+
+func isFree(y, x int) bool {
+	return currentBoard.position[y-1][x-1] == 0
+}
+
+func isLegalPawn(m *JSONMove) bool {
+	color := currentBoard.color
+	if !color {
+		return isLegalPawnWhite(m)
+	}
+	return isLegalPawnBlack(m)
+
+}
+
+func isLegalPawnWhite(m *JSONMove) bool {
+	fromX := currentBoard.pieces[m.PieceId].position.x
+	fromY := currentBoard.pieces[m.PieceId].position.y
+
+	// normal move
+	if m.CaptureId == 0 {
+		if fromX != m.ToX {
+			return false
+		}
+		if fromY-m.ToY == 2 {
+			if fromY != 7 {
+				return false
+			}
+			return isFree(fromY-1, fromX)
+		}
+		return fromY-m.ToY == 1
+	} else { // capture
+		diff := fromX - m.ToX
+		if (diff == 1 || diff == -1) && fromY-m.ToY == 1 {
+			return true
+		}
+	}
+	return false
+}
+
+func isLegalPawnBlack(m *JSONMove) bool {
+	fromX := currentBoard.pieces[m.PieceId].position.x
+	fromY := currentBoard.pieces[m.PieceId].position.y
+
+	// normal move
+	if m.CaptureId == 0 {
+		if fromX != m.ToX {
+			return false
+		}
+		if m.ToY-fromY == 2 {
+			if fromY != 2 {
+				return false
+			}
+			return isFree(fromY+1, fromX)
+		}
+		return m.ToY-fromY == 1
+	} else { // capture
+		diff := fromX - m.ToX
+		if (diff == 1 || diff == -1) && m.ToY-fromY == 1 {
+			return true
+		}
+	}
+	return false
+}
+
+func isLegal(m *JSONMove) bool {
+	pieceType := unicode.ToLower(rune(currentBoard.pieces[m.PieceId].c))
+	fmt.Println(pieceType == 'p')
+	switch pieceType {
+	case 'p':
+		return isLegalPawn(m)
+	}
+	return false
 }
 
 func Run() {
+
+	websocketConns = make(map[int]*websocket.Conn)
 	// Create a new engine
 	engine := mustache.NewFileSystem(http.Dir("./../ghess/public/templates"), ".mustache")
 
@@ -167,7 +245,8 @@ func Run() {
 	})
 
 	app.Static("/", "./../ghess/public")
-	currentBoard = parseFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+
+	setFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		// Render index
@@ -176,8 +255,68 @@ func Run() {
 		})
 	})
 
-	app.Post("/api/move", func(c *fiber.Ctx) error { return apiMakeMove(c, false) })
-	app.Post("/api/capture", func(c *fiber.Ctx) error { return apiMakeMove(c, true) })
+	// websocket
+	app.Use("/ws", func(c *fiber.Ctx) error {
+		// IsWebSocketUpgrade returns true if the client
+		// requested upgrade to the WebSocket protocol.
+		if websocket.IsWebSocketUpgrade(c) {
+			c.Locals("allowed", true)
+			return c.Next()
+		}
+		return fiber.ErrUpgradeRequired
+	})
+
+	// Upgraded websocket request
+	app.Get("/ws", websocket.New(func(c *websocket.Conn) {
+		type JSONWelcome struct {
+			Id int `json:"connectionId"`
+		}
+		websocketConns[nextConnectionId] = c
+		c.WriteJSON(JSONWelcome{Id: nextConnectionId})
+		nextConnectionId += 1
+		for {
+
+			var moveObj JSONMove
+			err := c.ReadJSON(&moveObj)
+			if err != nil {
+				log.Println("read:", err)
+				break
+			}
+			log.Printf("recv: %v\n", moveObj)
+			if moveObj.PieceId != 0 && getPieceColor(moveObj.PieceId) == currentBoard.color {
+				err = fillMove(&moveObj)
+				if err != nil {
+					log.Println("read:", err)
+					break
+				}
+				fmt.Printf("move: %v\n", moveObj)
+				legal := isLegal(&moveObj)
+
+				if legal {
+					err = move(&moveObj)
+					if err != nil {
+						log.Println("read:", err)
+						break
+					}
+					err = c.WriteJSON(moveObj)
+					if err != nil {
+						log.Println("read:", err)
+						break
+					}
+					currentBoard.color = !currentBoard.color
+				}
+
+				/*
+					// calculate response move
+					engineMoveObj := engineMove()
+					move(&engineMoveObj)
+					c.WriteJSON(engineMoveObj)
+
+					currentBoard.color = !currentBoard.color
+				*/
+			}
+		}
+	}))
 
 	log.Fatal(app.Listen(":3000"))
 }

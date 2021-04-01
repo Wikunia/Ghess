@@ -1,3 +1,30 @@
+var socket = new WebSocket("ws://localhost:3000/ws")
+
+socket.onopen = function(e) {
+    socket.send(JSON.stringify({"NewConnection": true}));
+};
+
+socket.onmessage = function (event) {
+    move = JSON.parse(event.data)
+    if (move.pieceId !== undefined) {
+        movePiece(move)
+    }
+}
+  
+function movePiece(move) {
+    let piece = document.querySelector("#piece_"+move.pieceId);
+    if (move.captureId !== 0) {
+        let capturedPiece = document.querySelector("#piece_"+move.captureId);
+        capturedPiece.style.display = "none";
+
+        piece.style.left = capturedPiece.style.left;
+        piece.style.top = capturedPiece.style.top;
+    } else {
+        piece.style.left = ((move.toX-1)*10)+"vmin";
+        piece.style.top = ((move.toY-1)*10)+"vmin";
+    }
+}
+
 function onDragStart(event) {
     console.log("event", event)
     event
@@ -25,55 +52,24 @@ function onDrop(event) {
     let pieceOrField = event.target.id.split("_")[0]
 
     if (pieceOrField == "piece") {
-        capturePiece(pieceId, event.target.id)
+        sendCapturePiece(pieceId, event.target.id)
     } else if (pieceOrField == "square") {
-        movePiece(pieceId, event.target.id)
+        sendMovePiece(pieceId, event.target.id)
     }
 }
 
-function movePiece(pieceId, to) {
+function sendMovePiece(pieceId, to) {
     let [_,to_y,to_x] = to.split("_")
     console.log(pieceId, " -> ", to_y, " ", to_x)
 
-    var xhr = new XMLHttpRequest();
-    var url = "/api/move";
-    xhr.open("POST", url, true);
-    xhr.setRequestHeader("Content-Type", "application/json");
-    xhr.onreadystatechange = function () {
-        if (xhr.readyState === 4 && xhr.status === 200) {
-            console.log(xhr.responseText)
-            if (xhr.responseText == "success") {
-                let piece = document.querySelector("#piece_"+pieceId);
-                piece.style.left = (parseInt(to_x)*10)+"vmin";
-                piece.style.top = (parseInt(to_y)*10)+"vmin";
-            }
-        }
-    };
-    var data = JSON.stringify({"pieceId": parseInt(pieceId), "to_y": parseInt(to_y), "to_x": parseInt(to_x)});
-    xhr.send(data);
+    var data = JSON.stringify({"pieceId": parseInt(pieceId), "toY": parseInt(to_y), "toX": parseInt(to_x)});
+    socket.send(data);
 }
 
-function capturePiece(pieceId, to) {
+function sendCapturePiece(pieceId, to) {
     let [_,captureId] = to.split("_")
     console.log(pieceId, " -> ", captureId)
 
-    var xhr = new XMLHttpRequest();
-    var url = "/api/capture";
-    xhr.open("POST", url, true);
-    xhr.setRequestHeader("Content-Type", "application/json");
-    xhr.onreadystatechange = function () {
-        if (xhr.readyState === 4 && xhr.status === 200) {
-            console.log(xhr.responseText)
-            if (xhr.responseText == "success") {
-                let capturedPiece = document.querySelector("#piece_"+captureId);
-                capturedPiece.style.display = "none";
-
-                let piece = document.querySelector("#piece_"+pieceId);
-                piece.style.left = capturedPiece.style.left;
-                piece.style.top = capturedPiece.style.top;
-            }
-        }
-    };
     var data = JSON.stringify({"pieceId": parseInt(pieceId), "captureId": parseInt(captureId)});
-    xhr.send(data);
+    socket.send(data);
 }
