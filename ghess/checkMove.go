@@ -1,12 +1,14 @@
 package ghess
 
 import (
-	"fmt"
 	"unicode"
 )
 
 func (board *Board) isFree(y, x int) bool {
-	return board.position[y-1][x-1] == 0
+	if y >= 1 && y <= 8 && x >= 1 && x <= 8 {
+		return board.position[y-1][x-1] == 0
+	}
+	return false
 }
 
 func (board *Board) isLegalPawn(m *JSONMove) bool {
@@ -83,6 +85,9 @@ func (board *Board) isLegalKing(m *JSONMove) bool {
 	}
 	diffx = toX - fromX
 	color := board.getPieceColor(m.PieceId)
+	if fromY != toY {
+		return false
+	}
 	if !color {
 		if fromY != 8 {
 			return false
@@ -206,7 +211,12 @@ func (board *Board) isLegalKnight(m *JSONMove) bool {
 	return (diffx == 1 && diffy == 2) || (diffx == 2 && diffy == 1)
 }
 
-func (board *Board) isLegal(m *JSONMove) bool {
+func (board *Board) isMovePossible(m *JSONMove) bool {
+	if m.ToX < 1 || m.ToY < 1 || m.ToX > 8 || m.ToY > 8 {
+		return false
+	}
+	// fill captureId if the move captures a piece
+	board.fillMove(m)
 	pieceType := unicode.ToLower(rune(board.pieces[m.PieceId].c))
 	// check that the other piece is of the other color
 	if m.CaptureId != 0 {
@@ -215,7 +225,6 @@ func (board *Board) isLegal(m *JSONMove) bool {
 		}
 	}
 
-	fmt.Println(pieceType == 'p')
 	switch pieceType {
 	case 'p':
 		return board.isLegalPawn(m)
@@ -231,4 +240,41 @@ func (board *Board) isLegal(m *JSONMove) bool {
 		return board.isLegalKnight(m)
 	}
 	return false
+}
+
+func (board *Board) isLegal(m *JSONMove) bool {
+	movePossible := board.isMovePossible(m)
+	if !movePossible {
+		return false
+	}
+	// check if one can capture the king now
+	fromY := board.pieces[m.PieceId].position.y
+	fromX := board.pieces[m.PieceId].position.x
+	boardPrimitives := board.getBoardPrimitives()
+	capturedId, castledMove := board.tempMove(m)
+	// can my king be taken?
+	kingId := board.whiteKingId
+	if board.color {
+		kingId = board.blackKingId
+	}
+	// we switch perspective
+	board.color = !board.color
+	legal := true
+	for _, piece := range board.pieces {
+		if piece.color != board.color {
+			continue
+		}
+		// we can take the piece that gives check
+		if piece.id == capturedId {
+			continue
+		}
+		move := JSONMove{PieceId: piece.id, CaptureId: kingId, ToY: 0, ToX: 0}
+		board.fillMove(&move)
+		if board.isMovePossible(&move) {
+			legal = false
+		}
+	}
+	//reverse move
+	board.reverseTempMove(m, fromY, fromX, capturedId, &castledMove, boardPrimitives)
+	return legal
 }

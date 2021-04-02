@@ -6,11 +6,13 @@ require (
 	github.com/Djarvur/go-err113 v0.1.0 // indirect
 	github.com/gofiber/fiber/v2 v2.7.1
 	github.com/gofiber/template v1.6.8
+	github.com/gofiber/websocket/v2 v2.0.3
 	github.com/golangci/golangci-lint v1.39.0 // indirect
 	github.com/google/go-cmp v0.5.5 // indirect
 	github.com/gostaticanalysis/analysisutil v0.7.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
+	github.com/jinzhu/copier v0.2.8
 	github.com/klauspost/compress v1.11.13 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mattn/go-runewidth v0.0.11 // indirect
