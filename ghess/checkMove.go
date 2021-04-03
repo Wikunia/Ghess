@@ -258,11 +258,13 @@ func (board *Board) isLegal(m *JSONMove) bool {
 	if board.color {
 		kingId = board.whiteKingId
 	}
-	castleCaptureMove := JSONMove{}
+	throughCastleCaptureMove := JSONMove{}
+	beforeCastleCaptureMove := JSONMove{}
 	isCastleMove := false
 	if isKing(board.pieces[m.PieceId]) && abs(fromX-m.ToX) == 2 {
 		isCastleMove = true
-		castleCaptureMove = JSONMove{PieceId: 0, CaptureId: 0, ToY: fromY, ToX: (fromX + m.ToX) / 2}
+		throughCastleCaptureMove = JSONMove{PieceId: 0, CaptureId: 0, ToY: fromY, ToX: (fromX + m.ToX) / 2}
+		beforeCastleCaptureMove = JSONMove{PieceId: 0, CaptureId: 0, ToY: fromY, ToX: fromX}
 	}
 
 	move := JSONMove{PieceId: 0, CaptureId: kingId, ToY: 0, ToX: 0}
@@ -285,9 +287,16 @@ func (board *Board) isLegal(m *JSONMove) bool {
 			legal = false
 		}
 		if isCastleMove {
-			castleCaptureMove.PieceId = piece.id
-			board.fillMove(&castleCaptureMove)
-			if board.isMovePossible(&castleCaptureMove) {
+			// castling through check is not allowed
+			throughCastleCaptureMove.PieceId = piece.id
+			board.fillMove(&throughCastleCaptureMove)
+			if board.isMovePossible(&throughCastleCaptureMove) {
+				legal = false
+			}
+			// castle when in check not allowed
+			beforeCastleCaptureMove.PieceId = piece.id
+			board.fillMove(&beforeCastleCaptureMove)
+			if board.isMovePossible(&beforeCastleCaptureMove) {
 				legal = false
 			}
 		}
