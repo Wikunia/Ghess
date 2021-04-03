@@ -247,20 +247,30 @@ func (board *Board) isLegal(m *JSONMove) bool {
 	if !movePossible {
 		return false
 	}
+	legal := true
 	// check if one can capture the king now
 	fromY := board.pieces[m.PieceId].position.y
 	fromX := board.pieces[m.PieceId].position.x
 	boardPrimitives := board.getBoardPrimitives()
-	capturedId, castledMove := board.tempMove(m)
+	capturedId, castledMove := board.move(m)
 	// can my king be taken?
-	kingId := board.whiteKingId
+	kingId := board.blackKingId
 	if board.color {
-		kingId = board.blackKingId
+		kingId = board.whiteKingId
 	}
-	// we switch perspective
-	board.color = !board.color
-	legal := true
+	castleCaptureMove := JSONMove{}
+	isCastleMove := false
+	if isKing(board.pieces[m.PieceId]) && abs(fromX-m.ToX) == 2 {
+		isCastleMove = true
+		castleCaptureMove = JSONMove{PieceId: 0, CaptureId: 0, ToY: fromY, ToX: (fromX + m.ToX) / 2}
+	}
+
+	move := JSONMove{PieceId: 0, CaptureId: kingId, ToY: 0, ToX: 0}
+
 	for _, piece := range board.pieces {
+		if !piece.onBoard {
+			continue
+		}
 		if piece.color != board.color {
 			continue
 		}
@@ -268,13 +278,21 @@ func (board *Board) isLegal(m *JSONMove) bool {
 		if piece.id == capturedId {
 			continue
 		}
-		move := JSONMove{PieceId: piece.id, CaptureId: kingId, ToY: 0, ToX: 0}
+
+		move.PieceId = piece.id
 		board.fillMove(&move)
 		if board.isMovePossible(&move) {
 			legal = false
 		}
+		if isCastleMove {
+			castleCaptureMove.PieceId = piece.id
+			board.fillMove(&castleCaptureMove)
+			if board.isMovePossible(&castleCaptureMove) {
+				legal = false
+			}
+		}
 	}
 	//reverse move
-	board.reverseTempMove(m, fromY, fromX, capturedId, &castledMove, boardPrimitives)
+	board.reverseMove(m, fromY, fromX, capturedId, &castledMove, boardPrimitives)
 	return legal
 }

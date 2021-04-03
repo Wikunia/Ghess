@@ -4,13 +4,7 @@ import (
 	"unicode"
 )
 
-func getNumberOfMoves(fen string, ply int, moves *[]JSONMove) int {
-	board := getBoardFromFen(fen)
-	for _, move := range *moves {
-		board.move(&move)
-		board.color = !board.color
-	}
-
+func (board *Board) getNumberOfMoves(ply int) int {
 	possibleMoves := board.getPossibleMoves()
 	if ply == 1 {
 		return len(possibleMoves)
@@ -19,19 +13,24 @@ func getNumberOfMoves(fen string, ply int, moves *[]JSONMove) int {
 		return 0
 	}
 
-	*moves = append(*moves, possibleMoves[0])
 	n := 0
-	for _, move := range possibleMoves {
-		(*moves)[len(*moves)-1] = move
-		n += getNumberOfMoves(fen, ply-1, moves)
+	for _, m := range possibleMoves {
+		fromY := board.pieces[m.PieceId].position.y
+		fromX := board.pieces[m.PieceId].position.x
+		boardPrimitives := board.getBoardPrimitives()
+		capturedId, castledMove := board.move(&m)
+		n += board.getNumberOfMoves(ply - 1)
+		board.reverseMove(&m, fromY, fromX, capturedId, &castledMove, boardPrimitives)
 	}
-	*moves = (*moves)[:len(*moves)-1]
 	return n
 }
 
 func (board *Board) getPossibleMoves() []JSONMove {
 	var moves []JSONMove
 	for _, piece := range board.pieces {
+		if !piece.onBoard {
+			continue
+		}
 		pieceType := unicode.ToLower(piece.c)
 		// only the current color can move
 		if piece.color != board.color {

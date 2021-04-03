@@ -5,7 +5,6 @@ import (
 )
 
 func TestNumMoves(t *testing.T) {
-	var moves []JSONMove
 	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 	for _, test := range numMovesTests {
 		board := getBoardFromFen(startFEN)
@@ -15,8 +14,7 @@ func TestNumMoves(t *testing.T) {
 				t.Errorf(err.Error())
 			}
 		}
-		fen := board.getFen()
-		n := getNumberOfMoves(fen, test.ply, &moves)
+		n := board.getNumberOfMoves(test.ply)
 		if n != test.expected {
 			t.Errorf("Moves(%v) with ply: %d expected %d, Actual %d", test.moves, test.ply, test.expected, n)
 		}
