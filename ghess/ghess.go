@@ -79,6 +79,27 @@ type JSONMove struct {
 	ToX       int `json:"toX"`
 }
 
+type Move struct {
+	pieceId   int
+	captureId int
+	fromY     int
+	fromX     int
+	toY       int
+	toX       int
+}
+
+func (board *Board) NewMove(pieceId int, captureId int, toY int, toX int, capture bool) Move {
+	fromY := board.pieces[pieceId].position.y
+	fromX := board.pieces[pieceId].position.x
+	if toX == 0 {
+		toX = board.pieces[captureId].position.x
+		toY = board.pieces[captureId].position.y
+	} else if captureId == 0 && board.position[toY][toX] != 0 { // fill capture if there is a piece on that position
+		captureId = board.position[toY][toX]
+	}
+	return Move{pieceId: pieceId, captureId: captureId, fromY: fromY, fromX: fromX, toY: toY, toX: toX}
+}
+
 type JSONRequest struct {
 	RequestType string `json:"requestType"`
 	PieceId     int    `json:"pieceId"`
@@ -218,8 +239,8 @@ func displayGround() string {
 			color := colors[(i+j)%2]
 			left := strconv.Itoa(j * 10)
 			top := strconv.Itoa(i * 10)
-			result += `<div id="square_` + strconv.Itoa(i) + `_` + strconv.Itoa(j) + `" class="square square_` + color + `" ondrop="onDrop(event);" ondragover="onDragOver(event);"> </div>`
-			result += `<div id="square_` + strconv.Itoa(i) + `_` + strconv.Itoa(j) + `_overlay" class="square_overlay" style="left: ` + left + `vmin; top: ` + top + `vmin;"> </div>`
+			result += `<div id="square_` + strconv.Itoa(i) + `_` + strconv.Itoa(j) + `" class="square square_` + color + `"> </div>`
+			result += `<div id="square_` + strconv.Itoa(i) + `_` + strconv.Itoa(j) + `_overlay" class="square_overlay" ondrop="onDrop(event);" ondragover="onDragOver(event);" style="left: ` + left + `vmin; top: ` + top + `vmin;"> </div>`
 		}
 		result += `</div>`
 	}
@@ -573,11 +594,22 @@ func Run() {
 				log.Println("read:", err)
 				break
 			}
+			isMove := false
+			move := Move{}
 			switch jsonObj.RequestType {
 			case "vision":
 				c.WriteJSON(JSONSurrounding{RequestType: "surrounding", Surrounding: board.pieces[jsonObj.PieceId].vision})
 			case "movement":
 				c.WriteJSON(JSONSurrounding{RequestType: "surrounding", Surrounding: board.pieces[jsonObj.PieceId].movement})
+			case "move":
+				isMove = true
+				move = board.NewMove(jsonObj.PieceId, jsonObj.CaptureId, jsonObj.ToY, jsonObj.ToX, false)
+			case "capture":
+				isMove = true
+				move = board.NewMove(jsonObj.PieceId, jsonObj.CaptureId, jsonObj.ToY, jsonObj.ToX, true)
+			}
+			if isMove {
+				fmt.Println("move: ", move)
 			}
 
 			/*

@@ -29,7 +29,6 @@ function showSurrounding(jsonObj) {
     for (let i = 0; i < 8; i++) {
         for (let j = 0; j < 8; j++) {
             if (surrounding[i][j]) {
-                console.log("#square_"+i+"_"+j)
                 field = document.querySelector("#square_"+i+"_"+j+"_overlay") 
                 field.style.display = "block"
             } 
@@ -54,11 +53,15 @@ function movePiece(move) {
 }
 
 function onDragStart(event) {
-    console.log("event", event)
     event
       .dataTransfer
       .setData('text/plain', event.target.id);
   
+    // send click event first
+    let pieceId = parseInt(event.target.id.split("_")[1])
+    var data = JSON.stringify({"requestType": "movement", "pieceId": pieceId});
+    socket.send(data)
+
     event
       .target
       .style
@@ -96,7 +99,7 @@ function sendMovePiece(pieceId, to) {
     let [_,to_y,to_x] = to.split("_")
     console.log(pieceId, " -> ", to_y, " ", to_x)
 
-    var data = JSON.stringify({"pieceId": parseInt(pieceId), "toY": parseInt(to_y), "toX": parseInt(to_x)});
+    var data = JSON.stringify({"requestType": "move", "pieceId": parseInt(pieceId), "toY": parseInt(to_y), "toX": parseInt(to_x)});
     socket.send(data);
 }
 
@@ -104,7 +107,7 @@ function sendCapturePiece(pieceId, to) {
     let [_,captureId] = to.split("_")
     console.log(pieceId, " -> ", captureId)
 
-    var data = JSON.stringify({"pieceId": parseInt(pieceId), "captureId": parseInt(captureId)});
+    var data = JSON.stringify({"requestType": "capture", "pieceId": parseInt(pieceId), "captureId": parseInt(captureId)});
     socket.send(data);
 }
 

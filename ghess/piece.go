@@ -160,12 +160,14 @@ func (board *Board) updateMovement() {
 	}
 }
 
-func (piece *Piece) setMovement(y, x int) {
-	if isInside(y, x) {
-		piece.movement[y][x] = true
-		piece.numMoves += 1
-		piece.moves[piece.numMoves] = Position{y: y, x: x}
+func (board *Board) setMovement(piece *Piece, y, x int) {
+	if !isInside(y, x) {
+		return
 	}
+	// tode move temporarily
+	piece.movement[y][x] = true
+	piece.numMoves += 1
+	piece.moves[piece.numMoves] = Position{y: y, x: x}
 }
 
 // resetMovement sets the movement to false
@@ -180,15 +182,41 @@ func resetMovement(piece *Piece) {
 
 func (board *Board) updatePieceMovement(piece *Piece) {
 	resetMovement(piece)
+	// handle pawn extra as it can only move diagonal if capture incl en passant
+	// can only move forward if no capture
+	if piece.pieceType == PAWN {
+		cx := piece.position.x
+		for i := 0; i < 8; i++ {
+			for j := 0; j < 8; j++ {
+				if piece.vision[i][j] {
+					diffx := abs(cx - j)
+					if diffx == 0 {
+						if board.isFree(i, j) {
+							board.setMovement(piece, i, j)
+						}
+					} else {
+						if !board.isFree(i, j) {
+							pieceAtPosition := board.pieces[board.position[i][j]]
+							if pieceAtPosition.isBlack != piece.isBlack {
+								board.setMovement(piece, i, j)
+							}
+						}
+					}
+				}
+			}
+		}
+		return
+	}
+
 	for i := 0; i < 8; i++ {
 		for j := 0; j < 8; j++ {
 			if piece.vision[i][j] {
 				if board.isFree(i, j) {
-					piece.setMovement(i, j)
+					board.setMovement(piece, i, j)
 				} else {
 					pieceAtPosition := board.pieces[board.position[i][j]]
 					if pieceAtPosition.isBlack != piece.isBlack {
-						piece.setMovement(i, j)
+						board.setMovement(piece, i, j)
 					}
 				}
 			}
