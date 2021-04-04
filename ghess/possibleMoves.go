@@ -1,10 +1,11 @@
 package ghess
 
+/*
 import (
-	"unicode"
+	"fmt"
 )
 
-func (board *Board) GetNumberOfMoves(ply int) int {
+func (board *Board) getNumberOfMovesInternal(ply int, startPly int, print bool) int {
 	possibleMoves := board.getPossibleMoves()
 	if ply == 1 {
 		return len(possibleMoves)
@@ -19,10 +20,18 @@ func (board *Board) GetNumberOfMoves(ply int) int {
 		fromX := board.pieces[m.PieceId].position.x
 		boardPrimitives := board.getBoardPrimitives()
 		capturedId, castledMove := board.move(&m)
-		n += board.GetNumberOfMoves(ply - 1)
+		num_moves := board.getNumberOfMovesInternal(ply-1, startPly, print)
+		if ply == startPly && print {
+			fmt.Printf("Num moves starting with %s : %d\n", board.moveToToLongAlgebraic(fromY, fromX, m.ToY, m.ToX), num_moves)
+		}
+		n += num_moves
 		board.reverseMove(&m, fromY, fromX, capturedId, &castledMove, boardPrimitives)
 	}
 	return n
+}
+
+func (board *Board) GetNumberOfMoves(ply int, print bool) int {
+	return board.getNumberOfMovesInternal(ply, ply, print)
 }
 
 func (board *Board) getPossibleMoves() []JSONMove {
@@ -31,12 +40,11 @@ func (board *Board) getPossibleMoves() []JSONMove {
 		if !piece.onBoard {
 			continue
 		}
-		pieceType := unicode.ToLower(piece.c)
-		// only the current color can move
-		if piece.color != board.color {
+		// only the current isBlack can move
+		if piece.isBlack != board.isBlack {
 			continue
 		}
-		switch pieceType {
+		switch piece.pieceType {
 		case 'p':
 			board.addPawnMoves(&piece, &moves)
 		case 'k':
@@ -56,7 +64,7 @@ func (board *Board) getPossibleMoves() []JSONMove {
 }
 
 func (board *Board) addPawnMoves(piece *Piece, moves *[]JSONMove) {
-	if !board.color {
+	if !board.isBlack {
 		board.addWhitePawnMoves(piece, moves)
 	} else {
 		board.addBlackPawnMoves(piece, moves)
@@ -114,7 +122,7 @@ func (board *Board) addKingMoves(piece *Piece, moves *[]JSONMove) {
 		}
 	}
 	// check castling
-	if (y == 1 && piece.color) || (y == 8 && !piece.color) {
+	if (y == 1 && piece.isBlack) || (y == 8 && !piece.isBlack) {
 		for dx := -2; dx <= 2; dx += 4 {
 			move.ToY = y
 			move.ToX = x + dx
@@ -217,3 +225,4 @@ func (board *Board) addKnightMoves(piece *Piece, moves *[]JSONMove) {
 		}
 	}
 }
+*/

@@ -5,9 +5,35 @@ socket.onopen = function(e) {
 };
 
 socket.onmessage = function (event) {
-    move = JSON.parse(event.data)
-    if (move.pieceId !== undefined) {
-        movePiece(move)
+    let jsonObj = JSON.parse(event.data)
+    if (jsonObj.requestType == "vision") {
+        showVision(jsonObj)
+    } else if (jsonObj.requestType == "move") {
+        movePiece(jsonObj)
+    }
+}
+
+function resetVision() {
+    for (let i = 0; i < 8; i++) {
+        for (let j = 0; j < 8; j++) {
+            field = document.querySelector("#square_"+i+"_"+j+"_overlay") 
+            field.style.display = "none"
+        }
+        
+    }
+}
+
+function showVision(jsonObj) {
+    resetVision()
+    let vision = jsonObj.vision
+    for (let i = 0; i < 8; i++) {
+        for (let j = 0; j < 8; j++) {
+            if (vision[i][j]) {
+                console.log("#square_"+i+"_"+j)
+                field = document.querySelector("#square_"+i+"_"+j+"_overlay") 
+                field.style.display = "block"
+            } 
+        }
     }
 }
   
@@ -22,8 +48,8 @@ function movePiece(move) {
     } 
     // can move to this position if en passant
     if (move.toX != 0) {
-        piece.style.left = ((move.toX-1)*10)+"vmin";
-        piece.style.top = ((move.toY-1)*10)+"vmin";
+        piece.style.left = (move.toX*10)+"vmin";
+        piece.style.top = (move.toY*10)+"vmin";
     }
 }
 
@@ -34,10 +60,16 @@ function onDragStart(event) {
       .setData('text/plain', event.target.id);
   
     event
-      .currentTarget
+      .target
       .style
-      .backgroundColor = 'yellow';
+      .opacity = '0.0';
   }
+
+function onDragEnd(event) {
+    event.target
+    .style
+    .opacity = '1.0';
+}
 
 function onDragOver(event) {
     event.preventDefault();
@@ -74,4 +106,10 @@ function sendCapturePiece(pieceId, to) {
 
     var data = JSON.stringify({"pieceId": parseInt(pieceId), "captureId": parseInt(captureId)});
     socket.send(data);
+}
+
+function onClick(event) {
+    let pieceId = parseInt(event.target.id.split("_")[1])
+    var data = JSON.stringify({"requestType": "vision", "pieceId": pieceId});
+    socket.send(data)
 }

@@ -1,5 +1,7 @@
 package ghess
 
+/*
+
 import (
 	"unicode"
 )
@@ -305,3 +307,4 @@ func (board *Board) isLegal(m *JSONMove) bool {
 	board.reverseMove(m, fromY, fromX, capturedId, &castledMove, boardPrimitives)
 	return legal
 }
+*/

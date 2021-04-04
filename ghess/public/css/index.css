@@ -20,6 +20,14 @@
     height: 10vmin;
 }
 
+.square_overlay {
+    position: absolute;
+    width: 10vmin;
+    height: 10vmin;
+    background-color: rgba(255,255, 0, 0.5);
+    display: none;
+}
+
 .square_black {
     background-color: darkgreen;
 }

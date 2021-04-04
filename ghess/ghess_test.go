@@ -14,7 +14,7 @@ func TestNumMoves(t *testing.T) {
 				t.Errorf(err.Error())
 			}
 		}
-		n := board.GetNumberOfMoves(test.ply)
+		n := board.GetNumberOfMoves(test.ply, false)
 		if n != test.expected {
 			t.Errorf("Moves(%v) with ply: %d expected %d, Actual %d", test.moves, test.ply, test.expected, n)
 		}
@@ -30,7 +30,7 @@ func TestNumMovesFromFEN(t *testing.T) {
 				t.Errorf(err.Error())
 			}
 		}
-		n := board.GetNumberOfMoves(test.ply)
+		n := board.GetNumberOfMoves(test.ply, true)
 		if n != test.expected {
 			t.Errorf("Fen(%s) + moves: %v with ply: %d expected %d, Actual %d", test.fen, test.moves, test.ply, test.expected, n)
 		}
@@ -40,8 +40,18 @@ func TestNumMovesFromFEN(t *testing.T) {
 func TestReverseMove(t *testing.T) {
 	for _, test := range reverseMovesTests {
 		board := GetBoardFromFen(test.fen)
+		boardUnchanged := GetBoardFromFen(test.fen)
+		for _, moveStr := range test.moves {
+			err := board.MoveLongAlgebraic(moveStr)
+			if err != nil {
+				t.Errorf(err.Error())
+			}
+			err = boardUnchanged.MoveLongAlgebraic(moveStr)
+			if err != nil {
+				t.Errorf(err.Error())
+			}
+		}
 		for _, move := range board.getPossibleMoves() {
-			boardUnchanged := GetBoardFromFen(test.fen)
 			board.isLegal(&move)
 			if !board.isEqual(&boardUnchanged) {
 				t.Errorf("Fen(%s) + move: from as x,y %d,%d to %d,%d reverse changed the board", test.fen, board.pieces[move.PieceId].position.x, board.pieces[move.PieceId].position.y, move.ToX, move.ToY)
@@ -81,6 +91,6 @@ func BenchmarkNumMoves(b *testing.B) {
 	board := GetBoardFromFen(startFEN)
 	board.MoveLongAlgebraic("e2-e4")
 	for i := 0; i < b.N; i++ {
-		board.GetNumberOfMoves(3)
+		board.GetNumberOfMoves(3, false)
 	}
 }

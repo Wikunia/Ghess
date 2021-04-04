@@ -9,33 +9,20 @@ func abs(x int) int {
 	return x
 }
 
-func isKing(piece Piece) bool {
-	return piece.c == 'K' || piece.c == 'k'
+func isInside(y, x int) bool {
+	return y >= 0 && y <= 7 && x >= 0 && x <= 7
 }
 
-func isQueen(piece Piece) bool {
-	return piece.c == 'Q' || piece.c == 'q'
-}
-
-func isRook(piece Piece) bool {
-	return piece.c == 'R' || piece.c == 'r'
-}
-
-func isBishop(piece Piece) bool {
-	return piece.c == 'B' || piece.c == 'b'
-}
-
-func isKnight(piece Piece) bool {
-	return piece.c == 'N' || piece.c == 'n'
-}
-
-func isPawn(piece Piece) bool {
-	return piece.c == 'P' || piece.c == 'p'
+func (board *Board) isFree(y, x int) bool {
+	if isInside(y, x) {
+		return board.position[y][x] == 0
+	}
+	return false
 }
 
 func (board *Board) getBoardPrimitives() BoardPrimitives {
 	return BoardPrimitives{
-		color:               board.color,
+		isBlack:             board.isBlack,
 		white_castle_king:   board.white_castle_king,
 		white_castle_queen:  board.white_castle_queen,
 		black_castle_king:   board.black_castle_king,
@@ -49,7 +36,7 @@ func (board *Board) getBoardPrimitives() BoardPrimitives {
 }
 
 func (board *Board) setBoardPrimitives(bp BoardPrimitives) {
-	board.color = bp.color
+	board.isBlack = bp.isBlack
 	board.white_castle_king = bp.white_castle_king
 	board.white_castle_queen = bp.white_castle_queen
 	board.black_castle_king = bp.black_castle_king
