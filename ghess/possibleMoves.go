@@ -4,7 +4,7 @@ import (
 	"unicode"
 )
 
-func (board *Board) getNumberOfMoves(ply int) int {
+func (board *Board) GetNumberOfMoves(ply int) int {
 	possibleMoves := board.getPossibleMoves()
 	if ply == 1 {
 		return len(possibleMoves)
@@ -19,7 +19,7 @@ func (board *Board) getNumberOfMoves(ply int) int {
 		fromX := board.pieces[m.PieceId].position.x
 		boardPrimitives := board.getBoardPrimitives()
 		capturedId, castledMove := board.move(&m)
-		n += board.getNumberOfMoves(ply - 1)
+		n += board.GetNumberOfMoves(ply - 1)
 		board.reverseMove(&m, fromY, fromX, capturedId, &castledMove, boardPrimitives)
 	}
 	return n
@@ -138,6 +138,9 @@ func (board *Board) addXMoves(piece *Piece, moves *[]JSONMove) {
 			if board.isLegal(&move) {
 				*moves = append(*moves, move)
 			}
+			if !board.isFree(move.ToY, move.ToX) {
+				break
+			}
 		}
 	}
 }
@@ -152,6 +155,9 @@ func (board *Board) addYMoves(piece *Piece, moves *[]JSONMove) {
 			move.CaptureId = 0
 			if board.isLegal(&move) {
 				*moves = append(*moves, move)
+			}
+			if !board.isFree(move.ToY, move.ToX) {
+				break
 			}
 		}
 	}
@@ -169,6 +175,9 @@ func (board *Board) addDiagMoves(piece *Piece, moves *[]JSONMove) {
 				move.CaptureId = 0
 				if board.isLegal(&move) {
 					*moves = append(*moves, move)
+				}
+				if !board.isFree(move.ToY, move.ToX) {
+					break
 				}
 			}
 		}

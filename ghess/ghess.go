@@ -144,7 +144,7 @@ func (board *Board) getFen() string {
 }
 
 func displayFen(fen string) string {
-	board := getBoardFromFen(fen)
+	board := GetBoardFromFen(fen)
 	return board.display()
 }
 
@@ -180,7 +180,7 @@ func displayGround() string {
 	return result
 }
 
-func getBoardFromFen(fen string) Board {
+func GetBoardFromFen(fen string) Board {
 	parts := strings.Split(fen, " ")
 	fen_pieces := parts[0]
 	rows := strings.Split(fen_pieces, "/")
@@ -261,7 +261,11 @@ func (board *Board) fillMove(m *JSONMove) {
 func (board *Board) move(m *JSONMove) (int, JSONMove) {
 	capturedId, castledMove := board.moveTemp(m)
 	// only count once for castling
-	board.halfMoves += 1
+	if isPawn(board.pieces[m.PieceId]) || m.CaptureId != 0 {
+		board.halfMoves = 0
+	} else {
+		board.halfMoves += 1
+	}
 	if !board.color {
 		board.nextMove += 1
 	}
@@ -366,8 +370,8 @@ func (board *Board) reverseMove(m *JSONMove, fromY int, fromX int, capturedId in
 		if capturedPiece, ok := board.pieces[capturedId]; ok {
 			capturedPiece.onBoard = true
 			board.pieces[capturedId] = capturedPiece
+			board.position[capturedPiece.position.y-1][capturedPiece.position.x-1] = capturedId
 		}
-		board.position[m.ToY-1][m.ToX-1] = capturedId
 	}
 	if castledMove.PieceId != 0 {
 		move.PieceId = castledMove.PieceId
@@ -452,7 +456,7 @@ func (board *Board) getMoveFromLongAlgebraic(moveStr string) (JSONMove, error) {
 	return move, nil
 }
 
-func (board *Board) moveLongAlgebraic(moveStr string) error {
+func (board *Board) MoveLongAlgebraic(moveStr string) error {
 	move, err := board.getMoveFromLongAlgebraic(moveStr)
 	if err != nil {
 		return err
@@ -462,7 +466,6 @@ func (board *Board) moveLongAlgebraic(moveStr string) error {
 }
 
 func Run() {
-
 	websocketConns = make(map[int]*websocket.Conn)
 	// Create a new engine
 	engine := mustache.NewFileSystem(http.Dir("./../ghess/public/templates"), ".mustache")
@@ -473,8 +476,8 @@ func Run() {
 
 	app.Static("/", "./../ghess/public")
 
-	board := getBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-	board = getBoardFromFen("rn1qkbnr/p1p1pppp/bp6/8/4p3/5NP1/PPPP1PBP/RNBQK2R w KQkq - 8 5")
+	board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+	board = GetBoardFromFen("rn1qkbnr/p1p1pppp/bp6/8/4p3/5NP1/PPPP1PBP/RNBQK2R w KQkq - 8 5")
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		// Render index
@@ -556,4 +559,5 @@ func Run() {
 	}))
 
 	log.Fatal(app.Listen(":3000"))
+
 }

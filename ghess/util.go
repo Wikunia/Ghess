@@ -1,5 +1,7 @@
 package ghess
 
+import "fmt"
+
 func abs(x int) int {
 	if x < 0 {
 		return -x
@@ -58,4 +60,24 @@ func (board *Board) setBoardPrimitives(bp BoardPrimitives) {
 	board.nextMove = bp.nextMove
 	board.whiteKingId = bp.whiteKingId
 	board.blackKingId = bp.blackKingId
+}
+
+func (board *Board) isEqual(otherBoard *Board) bool {
+	for i := 0; i < 8; i++ {
+		for j := 0; j < 8; j++ {
+			if board.position[i][j] != otherBoard.position[i][j] {
+				fmt.Println("Not equal at x,y: ", i+1, j+1)
+				fmt.Println("Now: ", board.position[i][j])
+				fmt.Println("Other: ", otherBoard.position[i][j])
+				return false
+			}
+		}
+	}
+	for key := range board.pieces {
+		if board.pieces[key].id != otherBoard.pieces[key].id || board.pieces[key].onBoard != otherBoard.pieces[key].onBoard {
+			fmt.Println("Not equal for piece: ", key)
+			return false
+		}
+	}
+	return true
 }
