@@ -52,13 +52,23 @@ func (board *Board) updateKingVision(piece *Piece) {
 	}
 	// castling
 	if (piece.isBlack && board.black_castle_king) || (!piece.isBlack && board.white_castle_king) {
-		piece.setVision(cy, cx+1)
-		piece.setVision(cy, cx+2)
+		if board.isFree(cy, cx+1) {
+			piece.setVision(cy, cx+2)
+			if board.isFree(cy, cx+2) {
+				piece.setVision(cy, cx+3)
+			}
+		}
 	}
 	if (piece.isBlack && board.black_castle_queen) || (!piece.isBlack && board.white_castle_queen) {
-		piece.setVision(cy, cx-1)
-		piece.setVision(cy, cx-2)
-		piece.setVision(cy, cx-3)
+		if board.isFree(cy, cx-1) {
+			piece.setVision(cy, cx-2)
+			if board.isFree(cy, cx-2) {
+				piece.setVision(cy, cx-3)
+				if board.isFree(cy, cx-3) {
+					piece.setVision(cy, cx-4)
+				}
+			}
+		}
 	}
 }
 
@@ -140,5 +150,48 @@ func (board *Board) updatePawnVision(piece *Piece) {
 		piece.setVision(cy-1, cx)
 		piece.setVision(cy-1, cx-1)
 		piece.setVision(cy-1, cx+1)
+	}
+}
+
+func (board *Board) updateMovement() {
+	for pieceId, piece := range board.pieces {
+		board.updatePieceMovement(&piece)
+		board.pieces[pieceId] = piece
+	}
+}
+
+func (piece *Piece) setMovement(y, x int) {
+	if isInside(y, x) {
+		piece.movement[y][x] = true
+		piece.numMoves += 1
+		piece.moves[piece.numMoves] = Position{y: y, x: x}
+	}
+}
+
+// resetMovement sets the movement to false
+func resetMovement(piece *Piece) {
+	for i := 0; i < 8; i++ {
+		for j := 0; j < 8; j++ {
+			piece.movement[i][j] = false
+		}
+	}
+	piece.numMoves = 0
+}
+
+func (board *Board) updatePieceMovement(piece *Piece) {
+	resetMovement(piece)
+	for i := 0; i < 8; i++ {
+		for j := 0; j < 8; j++ {
+			if piece.vision[i][j] {
+				if board.isFree(i, j) {
+					piece.setMovement(i, j)
+				} else {
+					pieceAtPosition := board.pieces[board.position[i][j]]
+					if pieceAtPosition.isBlack != piece.isBlack {
+						piece.setMovement(i, j)
+					}
+				}
+			}
+		}
 	}
 }

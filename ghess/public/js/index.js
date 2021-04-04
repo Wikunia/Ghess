@@ -6,14 +6,14 @@ socket.onopen = function(e) {
 
 socket.onmessage = function (event) {
     let jsonObj = JSON.parse(event.data)
-    if (jsonObj.requestType == "vision") {
-        showVision(jsonObj)
+    if (jsonObj.requestType == "surrounding") {
+        showSurrounding(jsonObj)
     } else if (jsonObj.requestType == "move") {
         movePiece(jsonObj)
     }
 }
 
-function resetVision() {
+function resetSurrounding() {
     for (let i = 0; i < 8; i++) {
         for (let j = 0; j < 8; j++) {
             field = document.querySelector("#square_"+i+"_"+j+"_overlay") 
@@ -23,12 +23,12 @@ function resetVision() {
     }
 }
 
-function showVision(jsonObj) {
-    resetVision()
-    let vision = jsonObj.vision
+function showSurrounding(jsonObj) {
+    resetSurrounding()
+    let surrounding = jsonObj.surrounding
     for (let i = 0; i < 8; i++) {
         for (let j = 0; j < 8; j++) {
-            if (vision[i][j]) {
+            if (surrounding[i][j]) {
                 console.log("#square_"+i+"_"+j)
                 field = document.querySelector("#square_"+i+"_"+j+"_overlay") 
                 field.style.display = "block"
@@ -110,6 +110,6 @@ function sendCapturePiece(pieceId, to) {
 
 function onClick(event) {
     let pieceId = parseInt(event.target.id.split("_")[1])
-    var data = JSON.stringify({"requestType": "vision", "pieceId": pieceId});
+    var data = JSON.stringify({"requestType": "movement", "pieceId": pieceId});
     socket.send(data)
 }

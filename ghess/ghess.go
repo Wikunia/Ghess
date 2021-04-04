@@ -87,9 +87,9 @@ type JSONRequest struct {
 	ToX         int    `json:"toX"`
 }
 
-type JSONVision struct {
+type JSONSurrounding struct {
 	RequestType string     `json:"requestType"`
-	Vision      [8][8]bool `json:"vision"`
+	Surrounding [8][8]bool `json:"surrounding"`
 }
 
 var websocketConns map[int]*websocket.Conn
@@ -293,6 +293,7 @@ func GetBoardFromFen(fen string) Board {
 		blackKingId:         blackKingId,
 	}
 	board.updateVision()
+	board.updateMovement()
 	return board
 }
 
@@ -574,7 +575,9 @@ func Run() {
 			}
 			switch jsonObj.RequestType {
 			case "vision":
-				c.WriteJSON(JSONVision{RequestType: "vision", Vision: board.pieces[jsonObj.PieceId].vision})
+				c.WriteJSON(JSONSurrounding{RequestType: "surrounding", Surrounding: board.pieces[jsonObj.PieceId].vision})
+			case "movement":
+				c.WriteJSON(JSONSurrounding{RequestType: "surrounding", Surrounding: board.pieces[jsonObj.PieceId].movement})
 			}
 
 			/*
