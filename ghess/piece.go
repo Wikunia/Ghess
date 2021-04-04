@@ -1,5 +1,7 @@
 package ghess
 
+import "fmt"
+
 func (board *Board) updateVision() {
 	for pieceId, piece := range board.pieces {
 		board.updatePieceVision(&piece)
@@ -164,7 +166,7 @@ func (board *Board) setMovement(piece *Piece, y, x int) {
 	if !isInside(y, x) {
 		return
 	}
-	// tode move temporarily
+	// todo move temporarily
 	piece.movement[y][x] = true
 	piece.numMoves += 1
 	piece.moves[piece.numMoves] = Position{y: y, x: x}
@@ -195,11 +197,15 @@ func (board *Board) updatePieceMovement(piece *Piece) {
 							board.setMovement(piece, i, j)
 						}
 					} else {
+						fmt.Println("board.en_passant_position: ", board.en_passant_position)
+						fmt.Println("i,j: ", i, j)
 						if !board.isFree(i, j) {
 							pieceAtPosition := board.pieces[board.position[i][j]]
 							if pieceAtPosition.isBlack != piece.isBlack {
 								board.setMovement(piece, i, j)
 							}
+						} else if board.en_passant_position.x == j && board.en_passant_position.y == i {
+							board.setMovement(piece, i, j)
 						}
 					}
 				}

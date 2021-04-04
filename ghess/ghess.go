@@ -286,8 +286,8 @@ func GetBoardFromFen(fen string) Board {
 	}
 	en_passant_position := Position{x: 0, y: 0}
 	if parts[3][0] != '-' {
-		en_passant_position.y = 9 - int(parts[3][1]-'0')
-		en_passant_position.x = int(parts[3][0]-'a') + 1
+		en_passant_position.y = 8 - int(parts[3][1]-'0')
+		en_passant_position.x = int(parts[3][0] - 'a')
 	}
 	// fmt.Println("en_passant_position: ", en_passant_position)
 
@@ -558,7 +558,7 @@ func Run() {
 	app.Static("/", "./../ghess/public")
 
 	// board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-	board := GetBoardFromFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 0")
+	board := GetBoardFromFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPBBPPP/R3K2R w KQkq a3 0 0")
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		// Render index
