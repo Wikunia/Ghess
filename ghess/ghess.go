@@ -26,37 +26,40 @@ const BISHOP = 'b'
 const PAWN = 'p'
 
 type Piece struct {
-	id        int
-	position  Position
-	pieceType rune
-	isBlack   bool
-	onBoard   bool
-	vision    [8][8]bool
-	movement  [8][8]bool
-	moves     [32]Position
-	numMoves  int
+	id             int
+	position       Position
+	pieceType      rune
+	isBlack        bool
+	onBoard        bool
+	vision         [8][8]bool
+	movement       [8][8]bool
+	moves          [32]Position
+	numMoves       int
+	updateMovement bool
 }
 
 func NewPiece(id int, position Position, pieceType rune, isBlack bool) Piece {
 	vision := [8][8]bool{}
 	movement := [8][8]bool{}
 	moves := [32]Position{}
-	return Piece{id: id, position: position, pieceType: pieceType, isBlack: isBlack, onBoard: true, vision: vision, movement: movement, moves: moves, numMoves: 0}
+	return Piece{id: id, position: position, pieceType: pieceType, isBlack: isBlack, onBoard: true, vision: vision, movement: movement, moves: moves, numMoves: 0, updateMovement: false}
 }
 
 type Board struct {
-	position            [8][8]int
-	pieces              map[int]Piece
-	isBlack             bool
-	white_castle_king   bool
-	white_castle_queen  bool
-	black_castle_king   bool
-	black_castle_queen  bool
-	en_passant_position Position // will be 0,0 if not possible
-	halfMoves           int
-	nextMove            int
-	whiteKingId         int
-	blackKingId         int
+	position             [8][8]int
+	pieces               [33]Piece // we start with 1 as captureId = 0 should mean no capture
+	isBlack              bool
+	white_castle_king    bool
+	white_castle_queen   bool
+	black_castle_king    bool
+	black_castle_queen   bool
+	en_passant_position  Position // will be 0,0 if not possible
+	halfMoves            int
+	nextMove             int
+	whiteKingId          int
+	blackKingId          int
+	lastMoveWasCheck     bool
+	currentlyReverseMode bool
 }
 
 type BoardPrimitives struct {
@@ -70,6 +73,7 @@ type BoardPrimitives struct {
 	nextMove            int
 	whiteKingId         int
 	blackKingId         int
+	lastMoveWasCheck    bool
 }
 
 type JSONMove struct {
@@ -88,14 +92,22 @@ type Move struct {
 	toX       int
 }
 
-func (board *Board) NewMove(pieceId int, captureId int, toY int, toX int, capture bool) Move {
+func (board *Board) newMove(pieceId int, captureId int, toY int, toX int, isCapture bool) Move {
 	fromY := board.pieces[pieceId].position.y
 	fromX := board.pieces[pieceId].position.x
-	if toX == 0 {
+	if isCapture {
 		toX = board.pieces[captureId].position.x
 		toY = board.pieces[captureId].position.y
-	} else if captureId == 0 && board.position[toY][toX] != 0 { // fill capture if there is a piece on that position
-		captureId = board.position[toY][toX]
+	} else if captureId == 0 {
+		if board.position[toY][toX] != 0 { // fill capture if there is a piece on that position
+			captureId = board.position[toY][toX]
+		} else if toY == board.en_passant_position.y && toX == board.en_passant_position.x && board.pieces[pieceId].pieceType == PAWN {
+			if board.isBlack {
+				captureId = board.position[toY-1][toX]
+			} else {
+				captureId = board.position[toY+1][toX]
+			}
+		}
 	}
 	return Move{pieceId: pieceId, captureId: captureId, fromY: fromY, fromX: fromX, toY: toY, toX: toX}
 }
@@ -153,7 +165,12 @@ func (board *Board) getFen() string {
 					fen += strconv.Itoa(n)
 					n = 0
 				}
-				fen += string(board.pieces[pieceId].pieceType)
+				pieceType := board.pieces[pieceId].pieceType
+				if !board.pieces[pieceId].isBlack {
+					fen += string(unicode.ToUpper(pieceType))
+				} else {
+					fen += string(pieceType)
+				}
 			}
 		}
 		if n != 0 {
@@ -186,8 +203,8 @@ func (board *Board) getFen() string {
 	}
 	fen += " "
 	if board.en_passant_position.x != 0 {
-		fen += string(rune('a' - 1 + board.en_passant_position.x))
-		fen += strconv.Itoa(9 - board.en_passant_position.y)
+		fen += string(rune('a' + board.en_passant_position.x))
+		fen += strconv.Itoa(8 - board.en_passant_position.y)
 	} else {
 		fen += "-"
 	}
@@ -201,10 +218,10 @@ func (board *Board) getFen() string {
 }
 
 func (board *Board) moveToToLongAlgebraic(fromY, fromX, toY, toX int) string {
-	res := string(rune('a' - 1 + fromX))
-	res += strconv.Itoa(9 - fromY)
-	res += "-" + string(rune('a'-1+toX))
-	res += strconv.Itoa(9 - toY)
+	res := string(rune('a' + fromX))
+	res += strconv.Itoa(8 - fromY)
+	res += "-" + string(rune('a'+toX))
+	res += strconv.Itoa(8 - toY)
 	return res
 }
 
@@ -219,7 +236,7 @@ func (board *Board) display() string {
 		if !piece.onBoard {
 			continue
 		}
-		pieceName := getPieceName(&piece)
+		pieceName := getPieceName(&board.pieces[pieceId])
 		position := piece.position
 		left := strconv.Itoa(position.x * 10)
 		top := strconv.Itoa(position.y * 10)
@@ -252,7 +269,7 @@ func GetBoardFromFen(fen string) Board {
 	fen_pieces := parts[0]
 	rows := strings.Split(fen_pieces, "/")
 	var position [8][8]int
-	pieces := make(map[int]Piece)
+	var pieces [33]Piece
 	pieceId := 1
 	whiteKingId := 0
 	blackKingId := 0
@@ -300,18 +317,20 @@ func GetBoardFromFen(fen string) Board {
 		fmt.Println("could not convert next move number to integer")
 	}
 	board := Board{
-		position:            position,
-		pieces:              pieces,
-		isBlack:             isBlack,
-		white_castle_king:   strings.ContainsRune(parts[2], 'K'),
-		white_castle_queen:  strings.ContainsRune(parts[2], 'Q'),
-		black_castle_king:   strings.ContainsRune(parts[2], 'k'),
-		black_castle_queen:  strings.ContainsRune(parts[2], 'q'),
-		en_passant_position: en_passant_position,
-		halfMoves:           halfMoves,
-		nextMove:            nextMove,
-		whiteKingId:         whiteKingId,
-		blackKingId:         blackKingId,
+		position:             position,
+		pieces:               pieces,
+		isBlack:              isBlack,
+		white_castle_king:    strings.ContainsRune(parts[2], 'K'),
+		white_castle_queen:   strings.ContainsRune(parts[2], 'Q'),
+		black_castle_king:    strings.ContainsRune(parts[2], 'k'),
+		black_castle_queen:   strings.ContainsRune(parts[2], 'q'),
+		en_passant_position:  en_passant_position,
+		halfMoves:            halfMoves,
+		nextMove:             nextMove,
+		whiteKingId:          whiteKingId,
+		blackKingId:          blackKingId,
+		lastMoveWasCheck:     false,
+		currentlyReverseMode: false,
 	}
 	board.updateVision()
 	board.updateMovement()
@@ -324,11 +343,43 @@ func (board *Board) fillMove(m *JSONMove) {
 		m.ToX = board.pieces[captureId].position.x
 		m.ToY = board.pieces[captureId].position.y
 	} else if m.CaptureId == 0 && board.position[m.ToY-1][m.ToX-1] != 0 { // fill capture if there is a piece on that position
-		fmt.Printf("fill capture as there is %i on y,x: %d, %d\n", board.position[m.ToY-1][m.ToX-1], m.ToY, m.ToX)
+		fmt.Printf("fill capture as there is %d on y,x: %d, %d\n", board.position[m.ToY-1][m.ToX-1], m.ToY, m.ToX)
 		m.CaptureId = board.position[m.ToY-1][m.ToX-1]
 	}
 }
 
+func (board *Board) updateCastlePrivileges() {
+	for _, piece := range board.pieces {
+		if piece.pieceType == KING {
+			if piece.isBlack && (piece.position.x != 4 || piece.position.y != 0) {
+				board.black_castle_king = false
+				board.black_castle_queen = false
+			} else if !piece.isBlack && (piece.position.x != 4 || piece.position.y != 7) {
+				board.white_castle_king = false
+				board.white_castle_queen = false
+			}
+			// if rook moved or captured
+			if piece.isBlack {
+				if board.pieces[board.position[0][7]].pieceType != ROOK || !board.pieces[board.position[0][7]].isBlack {
+					board.black_castle_king = false
+				}
+				if board.pieces[board.position[0][0]].pieceType != ROOK || !board.pieces[board.position[0][0]].isBlack {
+					board.black_castle_queen = false
+				}
+			}
+			if !piece.isBlack {
+				if board.pieces[board.position[7][7]].pieceType != ROOK || board.pieces[board.position[7][7]].isBlack {
+					board.white_castle_king = false
+				}
+				if board.pieces[board.position[7][0]].pieceType != ROOK || board.pieces[board.position[7][0]].isBlack {
+					board.white_castle_queen = false
+				}
+			}
+		}
+	}
+}
+
+/*
 func (board *Board) move(m *JSONMove) (int, JSONMove) {
 	capturedId, castledMove := board.moveTemp(m)
 	fmt.Println("a4 inside move: ", board.position[4][0])
@@ -344,6 +395,7 @@ func (board *Board) move(m *JSONMove) (int, JSONMove) {
 	board.isBlack = !board.isBlack
 	return capturedId, castledMove
 }
+*/
 
 // Move the piece and return the id of a captured piece and return castled rook move 0, empty otherwise
 func (board *Board) moveTemp(m *JSONMove) (int, JSONMove) {
@@ -359,38 +411,10 @@ func (board *Board) moveTemp(m *JSONMove) (int, JSONMove) {
 	fromY := piece.position.y
 	board.position[m.ToY-1][m.ToX-1] = board.position[fromY-1][fromX-1]
 	board.position[fromY-1][fromX-1] = 0
-	if thisPiece, ok := board.pieces[m.PieceId]; ok {
-		thisPiece.position.x = m.ToX
-		thisPiece.position.y = m.ToY
-		board.pieces[m.PieceId] = thisPiece
-	}
+	board.pieces[m.PieceId].position.x = m.ToX
+	board.pieces[m.PieceId].position.y = m.ToY
 	if m.CaptureId != 0 {
-		if capturedPiece, ok := board.pieces[m.CaptureId]; ok {
-			capturedPiece.onBoard = false
-			board.pieces[m.CaptureId] = capturedPiece
-		}
-		board.en_passant_position.x = 0
-		board.en_passant_position.y = 0
-		return m.CaptureId, castledMove
-	} else {
-		if piece.pieceType == PAWN {
-			diffx := abs(fromX - m.ToX)
-			if diffx == 1 {
-				// en passant
-				fmt.Println("en passant on: ", board.moveToToLongAlgebraic(fromY, fromX, fromY, m.ToX))
-				// m.CaptureId = board.position[fromY-1][m.ToX-1]
-				board.position[fromY-1][m.ToX-1] = 0
-				fmt.Printf("board.position at y,x: %d, %d = %d\n", fromY, m.ToX, board.position[fromY-1][m.ToX-1])
-				fmt.Println("a4 inside: ", board.position[4][0])
-				if capturedPiece, ok := board.pieces[board.position[fromY-1][m.ToX-1]]; ok {
-					capturedPiece.onBoard = false
-					board.pieces[board.position[fromY-1][m.ToX-1]] = capturedPiece
-				}
-				board.en_passant_position.x = 0
-				board.en_passant_position.y = 0
-				return board.position[fromY-1][m.ToX-1], castledMove
-			}
-		}
+		board.pieces[m.CaptureId].onBoard = false
 	}
 
 	// disallow castling
@@ -442,6 +466,7 @@ func (board *Board) moveTemp(m *JSONMove) (int, JSONMove) {
 	return 0, castledMove
 }
 
+/*
 func (board *Board) reverseMove(m *JSONMove, fromY int, fromX int, capturedId int, castledMove *JSONMove, boardPrimitives BoardPrimitives) {
 	fmt.Println("reverse a move")
 	move := JSONMove{PieceId: board.position[m.ToY-1][m.ToX-1], CaptureId: capturedId, ToY: fromY, ToX: fromX}
@@ -468,6 +493,7 @@ func (board *Board) reverseMove(m *JSONMove, fromY int, fromX int, capturedId in
 	}
 	board.setBoardPrimitives(boardPrimitives)
 }
+*/
 
 func engineMove() JSONMove {
 	return JSONMove{PieceId: 13, CaptureId: 0, ToY: 4, ToX: 5}
@@ -515,26 +541,28 @@ func (board *Board) getRookMoveIfCastle(m *JSONMove) (JSONMove, bool) {
 	return rm, true
 }
 
-func (board *Board) getMoveFromLongAlgebraic(moveStr string) (JSONMove, error) {
-	move := JSONMove{}
+func (board *Board) getMoveFromLongAlgebraic(moveStr string) (Move, error) {
+	move := Move{}
 	if len(moveStr) != 5 {
 		return move, fmt.Errorf("currently only algebraic notation with 5 chars is supported")
 	}
-	fromX := int(moveStr[0] - 'a' + 1)
-	fromY := 9 - int(moveStr[1]-'0')
-	toX := int(moveStr[3] - 'a' + 1)
-	toY := 9 - int(moveStr[4]-'0')
-	pieceId := board.position[fromY-1][fromX-1]
+	fromX := int(moveStr[0] - 'a')
+	fromY := 8 - int(moveStr[1]-'0')
+	toX := int(moveStr[3] - 'a')
+	toY := 8 - int(moveStr[4]-'0')
+	pieceId := board.position[fromY][fromX]
 	if pieceId == 0 {
 		return move, fmt.Errorf("there is no piece at that position")
 	}
 	if board.pieces[pieceId].isBlack != board.isBlack {
-		return move, fmt.Errorf("the piece has the wrong isBlack")
+		return move, fmt.Errorf("the piece has the wrong color")
 	}
-	// Todo just check if legal move
-	move = JSONMove{PieceId: pieceId, CaptureId: 0, ToX: toX, ToY: toY}
-	board.fillMove(&move)
-	return move, nil
+	move = board.newMove(pieceId, 0, toY, toX, false)
+	if board.isLegal(&move) {
+		// capture will be filled automatically
+		return move, nil
+	}
+	return move, fmt.Errorf("the move is not legal")
 }
 
 func (board *Board) MoveLongAlgebraic(moveStr string) error {
@@ -542,8 +570,14 @@ func (board *Board) MoveLongAlgebraic(moveStr string) error {
 	if err != nil {
 		return err
 	}
-	board.move(&move)
+	board.move(&board.pieces[move.pieceId], move.toY, move.toX)
 	return nil
+}
+
+// check if the move is really legal based on the movement array
+func (board *Board) isLegal(move *Move) bool {
+	piece := board.pieces[move.pieceId]
+	return piece.movement[move.toY][move.toX] && piece.isBlack == board.isBlack
 }
 
 func Run() {
@@ -557,8 +591,10 @@ func Run() {
 
 	app.Static("/", "./../ghess/public")
 
-	// board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-	board := GetBoardFromFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPBBPPP/R3K2R w KQkq a3 0 0")
+	board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+	// board := GetBoardFromFen("rnbqkbnr/pppp1ppp/8/4p3/8/5N2/PPPP1PPP/4K3 b KQkq - 0 1")
+	// board := GetBoardFromFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPB1PPP/R3K2R w KQkq a3 0 0")
+	// board := GetBoardFromFen("r3k2r/p1ppqpb1/1n2pnp1/1b1PN3/Pp2P3/5Q1p/1PPB1PPP/R3K2R w KQkq - 0 0")
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		// Render index
@@ -603,14 +639,29 @@ func Run() {
 				c.WriteJSON(JSONSurrounding{RequestType: "surrounding", Surrounding: board.pieces[jsonObj.PieceId].movement})
 			case "move":
 				isMove = true
-				move = board.NewMove(jsonObj.PieceId, jsonObj.CaptureId, jsonObj.ToY, jsonObj.ToX, false)
+				move = board.newMove(jsonObj.PieceId, jsonObj.CaptureId, jsonObj.ToY, jsonObj.ToX, false)
 			case "capture":
 				isMove = true
-				move = board.NewMove(jsonObj.PieceId, jsonObj.CaptureId, jsonObj.ToY, jsonObj.ToX, true)
+				move = board.newMove(jsonObj.PieceId, jsonObj.CaptureId, jsonObj.ToY, jsonObj.ToX, true)
 			}
-			if isMove {
+			if isMove && board.isLegal(&move) {
 				fmt.Println("move: ", move)
+				_, rookMove := board.move(&board.pieces[move.pieceId], move.toY, move.toX)
+				err = c.WriteJSON(JSONRequest{RequestType: "move", PieceId: move.pieceId, CaptureId: move.captureId, ToY: move.toY, ToX: move.toX})
+				if err != nil {
+					log.Println("write:", err)
+					break
+				}
+				fmt.Println("rookMove: ", rookMove)
+				if rookMove.pieceId != 0 {
+					err = c.WriteJSON(JSONRequest{RequestType: "move", PieceId: rookMove.pieceId, CaptureId: rookMove.captureId, ToY: rookMove.toY, ToX: rookMove.toX})
+					if err != nil {
+						log.Println("rookMove write:", err)
+						break
+					}
+				}
 			}
+			fmt.Println(board.getFen())
 
 			/*
 				log.Printf("recv: %v\n", moveObj)

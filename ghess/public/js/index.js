@@ -10,6 +10,7 @@ socket.onmessage = function (event) {
         showSurrounding(jsonObj)
     } else if (jsonObj.requestType == "move") {
         movePiece(jsonObj)
+        resetSurrounding()
     }
 }
 
@@ -41,15 +42,10 @@ function movePiece(move) {
     if (move.captureId !== 0) {
         let capturedPiece = document.querySelector("#piece_"+move.captureId);
         capturedPiece.style.display = "none";
-
-        piece.style.left = capturedPiece.style.left;
-        piece.style.top = capturedPiece.style.top;
     } 
     // can move to this position if en passant
-    if (move.toX != 0) {
-        piece.style.left = (move.toX*10)+"vmin";
-        piece.style.top = (move.toY*10)+"vmin";
-    }
+    piece.style.left = (move.toX*10)+"vmin";
+    piece.style.top = (move.toY*10)+"vmin";
 }
 
 function onDragStart(event) {

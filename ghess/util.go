@@ -32,10 +32,11 @@ func (board *Board) getBoardPrimitives() BoardPrimitives {
 		nextMove:            board.nextMove,
 		whiteKingId:         board.whiteKingId,
 		blackKingId:         board.blackKingId,
+		lastMoveWasCheck:    board.lastMoveWasCheck,
 	}
 }
 
-func (board *Board) setBoardPrimitives(bp BoardPrimitives) {
+func (board *Board) setBoardPrimitives(bp *BoardPrimitives) {
 	board.isBlack = bp.isBlack
 	board.white_castle_king = bp.white_castle_king
 	board.white_castle_queen = bp.white_castle_queen
@@ -53,7 +54,7 @@ func (board *Board) isEqual(otherBoard *Board) bool {
 	for i := 0; i < 8; i++ {
 		for j := 0; j < 8; j++ {
 			if board.position[i][j] != otherBoard.position[i][j] {
-				fmt.Println("Not equal at x,y: ", i+1, j+1)
+				fmt.Println("Not equal at x,y: ", i, j)
 				fmt.Println("Now: ", board.position[i][j])
 				fmt.Println("Other: ", otherBoard.position[i][j])
 				return false

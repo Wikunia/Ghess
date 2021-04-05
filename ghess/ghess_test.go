@@ -21,6 +21,7 @@ func TestNumMoves(t *testing.T) {
 	}
 }
 
+/*
 func TestNumMovesFromFEN(t *testing.T) {
 	for _, test := range numMovesFromFENTests {
 		board := GetBoardFromFen(test.fen)
@@ -36,26 +37,16 @@ func TestNumMovesFromFEN(t *testing.T) {
 		}
 	}
 }
+*/
 
-func TestReverseMove(t *testing.T) {
-	for _, test := range reverseMovesTests {
+func TestIsLegal(t *testing.T) {
+	for _, test := range legalMovesTests {
 		board := GetBoardFromFen(test.fen)
-		boardUnchanged := GetBoardFromFen(test.fen)
-		for _, moveStr := range test.moves {
-			err := board.MoveLongAlgebraic(moveStr)
-			if err != nil {
-				t.Errorf(err.Error())
-			}
-			err = boardUnchanged.MoveLongAlgebraic(moveStr)
-			if err != nil {
-				t.Errorf(err.Error())
-			}
-		}
-		for _, move := range board.getPossibleMoves() {
-			board.isLegal(&move)
-			if !board.isEqual(&boardUnchanged) {
-				t.Errorf("Fen(%s) + move: from as x,y %d,%d to %d,%d reverse changed the board", test.fen, board.pieces[move.PieceId].position.x, board.pieces[move.PieceId].position.y, move.ToX, move.ToY)
-			}
+		_, err := board.getMoveFromLongAlgebraic(test.moveStr)
+		if err != nil && test.legal {
+			t.Errorf("should be legal but has algebraic error for %s with error %s", test.moveStr, err)
+		} else if !test.legal && err == nil {
+			t.Errorf("should be illegal but has no algebraic error for %s", test.moveStr)
 		}
 	}
 }
@@ -70,6 +61,7 @@ func TestFen(t *testing.T) {
 	}
 }
 
+/*
 func TestHalfMoves(t *testing.T) {
 	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 	for _, test := range halfMovesTests {
@@ -94,3 +86,4 @@ func BenchmarkNumMoves(b *testing.B) {
 		board.GetNumberOfMoves(3, false)
 	}
 }
+*/

@@ -1,11 +1,47 @@
 package ghess
 
-import "fmt"
+func (board *Board) hasBlackCaptureVisionOn(pos Position) bool {
+	for _, piece := range board.pieces {
+		if !piece.onBoard || !piece.isBlack {
+			continue
+		}
+		if piece.vision[pos.y][pos.x] {
+			return piece.pieceType != PAWN || piece.position.x != pos.x
+		}
+	}
+	return false
+}
+
+func (board *Board) hasWhiteCaptureVisionOn(pos Position) bool {
+	for _, piece := range board.pieces {
+		if !piece.onBoard || piece.isBlack {
+			continue
+		}
+		if piece.vision[pos.y][pos.x] {
+			return piece.pieceType != PAWN || piece.position.x != pos.x
+		}
+	}
+	return false
+}
 
 func (board *Board) updateVision() {
+	for pieceId := range board.pieces {
+		piece := board.pieces[pieceId]
+		if !piece.onBoard {
+			continue
+		}
+		board.updatePieceVision(&board.pieces[pieceId])
+	}
+}
+
+func (board *Board) updateVisionOnPosition(y, x int) {
 	for pieceId, piece := range board.pieces {
-		board.updatePieceVision(&piece)
-		board.pieces[pieceId] = piece
+		if !piece.onBoard {
+			continue
+		}
+		if piece.vision[y][x] {
+			board.updatePieceVision(&board.pieces[pieceId])
+		}
 	}
 }
 
@@ -24,8 +60,26 @@ func resetVision(piece *Piece) {
 	}
 }
 
+func (board *Board) resetUpdateMovement() {
+	for pieceId := range board.pieces {
+		if board.pieces[pieceId].pieceType != KING {
+			board.pieces[pieceId].updateMovement = false
+		}
+	}
+}
+
+func (board *Board) setAllUpdateMovement() {
+	for pieceId := range board.pieces {
+		if board.pieces[pieceId].onBoard {
+			board.pieces[pieceId].updateMovement = true
+		}
+	}
+}
+
 func (board *Board) updatePieceVision(piece *Piece) {
+	piece.updateMovement = true
 	resetVision(piece)
+	piece.vision[piece.position.y][piece.position.x] = true
 	switch piece.pieceType {
 	case KING:
 		board.updateKingVision(piece)
@@ -52,7 +106,9 @@ func (board *Board) updateKingVision(piece *Piece) {
 			piece.setVision(y, x)
 		}
 	}
+
 	// castling
+	// king side
 	if (piece.isBlack && board.black_castle_king) || (!piece.isBlack && board.white_castle_king) {
 		if board.isFree(cy, cx+1) {
 			piece.setVision(cy, cx+2)
@@ -61,6 +117,7 @@ func (board *Board) updateKingVision(piece *Piece) {
 			}
 		}
 	}
+	// queen side
 	if (piece.isBlack && board.black_castle_queen) || (!piece.isBlack && board.white_castle_queen) {
 		if board.isFree(cy, cx-1) {
 			piece.setVision(cy, cx-2)
@@ -72,6 +129,7 @@ func (board *Board) updateKingVision(piece *Piece) {
 			}
 		}
 	}
+
 }
 
 func (board *Board) updateRookVision(piece *Piece) {
@@ -157,8 +215,14 @@ func (board *Board) updatePawnVision(piece *Piece) {
 
 func (board *Board) updateMovement() {
 	for pieceId, piece := range board.pieces {
-		board.updatePieceMovement(&piece)
-		board.pieces[pieceId] = piece
+		if !piece.onBoard || !piece.updateMovement {
+			continue
+		}
+		board.updatePieceMovement(&board.pieces[pieceId])
+		// King updates possible movement every time to check for new checks
+		if piece.pieceType != KING {
+			board.pieces[pieceId].updateMovement = false
+		}
 	}
 }
 
@@ -166,10 +230,207 @@ func (board *Board) setMovement(piece *Piece, y, x int) {
 	if !isInside(y, x) {
 		return
 	}
-	// todo move temporarily
-	piece.movement[y][x] = true
-	piece.numMoves += 1
-	piece.moves[piece.numMoves] = Position{y: y, x: x}
+	legal := true
+	ox := piece.position.x
+	oy := piece.position.y
+	boardPrimitives := board.getBoardPrimitives()
+	capturedId, rookMove := board.tempMove(piece, y, x)
+	if board.isBlack && piece.isBlack {
+		// check if white king can be captured
+		blackKing := board.pieces[board.blackKingId]
+		if board.hasWhiteCaptureVisionOn(blackKing.position) {
+			legal = false
+		}
+		// castle
+		if rookMove.pieceId != 0 {
+			// castle can the rook after castling be captured?
+			rook := board.pieces[rookMove.pieceId]
+			if board.hasWhiteCaptureVisionOn(rook.position) {
+				legal = false
+			}
+			// can the original king be captured? No castle when in check...
+			if board.hasWhiteCaptureVisionOn(Position{y: oy, x: ox}) {
+				legal = false
+			}
+		}
+	} else if !board.isBlack && !piece.isBlack {
+		// check if white king can be captured
+		whiteKing := board.pieces[board.whiteKingId]
+		if board.hasBlackCaptureVisionOn(whiteKing.position) {
+			legal = false
+		}
+		// castle
+		if rookMove.pieceId != 0 {
+			// castle can the rook after castling be captured?
+			rook := board.pieces[rookMove.pieceId]
+			if board.hasBlackCaptureVisionOn(rook.position) {
+				legal = false
+			}
+			// can the original king be captured? No castle when in check...
+			if board.hasBlackCaptureVisionOn(Position{y: oy, x: ox}) {
+				legal = false
+			}
+		}
+	}
+	board.reverseTempMove(piece, oy, ox, capturedId, rookMove.pieceId, &boardPrimitives)
+	board.resetUpdateMovement()
+
+	if legal {
+		piece.movement[y][x] = true
+		piece.moves[piece.numMoves] = Position{y: y, x: x}
+		piece.numMoves += 1
+	}
+}
+
+func (board *Board) move(piece *Piece, y, x int) (int, Move) {
+	capturedId, rookMove := board.tempMove(piece, y, x)
+
+	// remove castle privileges
+	// if king or rook moved or rook captured
+	board.updateCastlePrivileges()
+
+	board.isBlack = !board.isBlack
+	if board.lastMoveWasCheck {
+		board.setAllUpdateMovement()
+	}
+
+	board.lastMoveWasCheck = false
+	// update the vision/movement of new attacked pieces as well
+	for i := 0; i < 8; i++ {
+		for j := 0; j < 8; j++ {
+			if piece.vision[i][j] && board.position[i][j] != 0 {
+				attackedPiece := board.pieces[board.position[i][j]]
+				if attackedPiece.isBlack != piece.isBlack {
+					board.updatePieceVision(&board.pieces[board.position[i][j]])
+					// the enemy king is in check => update movement of all pieces on the board
+					if board.pieces[board.position[i][j]].pieceType == KING {
+						board.setAllUpdateMovement()
+						board.lastMoveWasCheck = true
+					}
+				}
+			}
+		}
+	}
+
+	board.updateMovement()
+	return capturedId, rookMove
+}
+
+func (board *Board) tempMove(piece *Piece, y, x int) (int, Move) {
+	ox := piece.position.x
+	oy := piece.position.y
+
+	// check if capture
+	isCapture := false
+	capturedId := 0
+	captureY := -1
+	captureX := -1
+	// normal capture
+	if board.position[y][x] != 0 {
+		isCapture = true
+		captureY = y
+		captureX = x
+		// en passant capture
+	} else if piece.pieceType == PAWN && board.en_passant_position.x == x && board.en_passant_position.y == y {
+		isCapture = true
+		captureX = x
+		if piece.isBlack {
+			captureY = y + 1
+		} else {
+			captureY = y - 1
+		}
+	}
+	if isCapture {
+		capturedId = board.position[y][x]
+		board.pieces[capturedId].onBoard = false
+	}
+
+	// castle
+	rookMove := Move{}
+	if piece.pieceType == KING && abs(x-ox) == 2 && ox == 4 {
+		if x == 6 {
+			rookId := board.position[y][7]
+			rook := board.pieces[rookId]
+			rookMove = board.newMove(rookId, 0, y, 5, false)
+			board.tempMove(&rook, y, 5)
+			board.pieces[rookId] = rook
+		} else {
+			rookId := board.position[y][0]
+			rook := board.pieces[rookId]
+			rookMove = board.newMove(rookId, 0, y, 3, false)
+			board.tempMove(&rook, y, 3)
+			board.pieces[rookId] = rook
+		}
+	}
+
+	// remove the figure from its current position
+	board.position[piece.position.y][piece.position.x] = 0
+	// add the figure to its new position
+	board.position[y][x] = piece.id
+	piece.position.x = x
+	piece.position.y = y
+	// fmt.Println("captureY, captureX: ", captureY, captureX)
+
+	// update vision
+	board.updateVisionOnPosition(oy, ox)
+	board.updateVisionOnPosition(y, x)
+	if isCapture && (captureX != x || captureY != y) {
+		board.updateVisionOnPosition(captureY, captureX)
+	}
+
+	// en passant possible
+	if piece.pieceType == PAWN {
+		if (piece.isBlack && y-oy == 2) || (!piece.isBlack && y-oy == -2) {
+			board.en_passant_position.y = (y + oy) / 2
+			board.en_passant_position.x = x
+			board.updateVisionOnPosition((y+oy)/2, x)
+		} else {
+			board.en_passant_position.y = 0
+			board.en_passant_position.x = 0
+		}
+	} else {
+		board.en_passant_position.y = 0
+		board.en_passant_position.x = 0
+	}
+
+	return capturedId, rookMove
+}
+
+func (board *Board) reverseMove(piece *Piece, y, x int, capturedId int, rookId int, boardPrimitives *BoardPrimitives) {
+	board.isBlack = !board.isBlack
+	board.reverseTempMove(piece, y, x, capturedId, rookId, boardPrimitives)
+
+	board.updateVision()
+
+	board.updateCastlePrivileges()
+	board.setAllUpdateMovement()
+
+	board.updateMovement()
+}
+
+func (board *Board) reverseTempMove(piece *Piece, y, x int, capturedId int, rookId int, boardPrimitives *BoardPrimitives) {
+	board.currentlyReverseMode = true
+	// reverse castle rook move
+	if rookId != 0 {
+		rook := board.pieces[rookId]
+		if rook.position.x == 3 {
+			board.tempMove(&rook, y, 0)
+		} else {
+			board.tempMove(&rook, y, 7)
+		}
+		board.pieces[rookId] = rook
+	}
+	// move the piece itself back
+	board.tempMove(piece, y, x)
+
+	if capturedId != 0 {
+		capturedPiece := board.pieces[capturedId]
+		board.position[capturedPiece.position.y][capturedPiece.position.x] = capturedId
+		board.pieces[capturedId].onBoard = true
+		board.updateVisionOnPosition(capturedPiece.position.y, capturedPiece.position.x)
+	}
+	board.currentlyReverseMode = false
+	board.setBoardPrimitives(boardPrimitives)
 }
 
 // resetMovement sets the movement to false
@@ -192,19 +453,18 @@ func (board *Board) updatePieceMovement(piece *Piece) {
 			for j := 0; j < 8; j++ {
 				if piece.vision[i][j] {
 					diffx := abs(cx - j)
+					// normal move
 					if diffx == 0 {
 						if board.isFree(i, j) {
 							board.setMovement(piece, i, j)
 						}
-					} else {
-						fmt.Println("board.en_passant_position: ", board.en_passant_position)
-						fmt.Println("i,j: ", i, j)
+					} else { // capture
 						if !board.isFree(i, j) {
 							pieceAtPosition := board.pieces[board.position[i][j]]
 							if pieceAtPosition.isBlack != piece.isBlack {
 								board.setMovement(piece, i, j)
 							}
-						} else if board.en_passant_position.x == j && board.en_passant_position.y == i {
+						} else if board.en_passant_position.x == j && board.en_passant_position.y == i && piece.isBlack == board.isBlack {
 							board.setMovement(piece, i, j)
 						}
 					}
@@ -218,7 +478,14 @@ func (board *Board) updatePieceMovement(piece *Piece) {
 		for j := 0; j < 8; j++ {
 			if piece.vision[i][j] {
 				if board.isFree(i, j) {
-					board.setMovement(piece, i, j)
+					if piece.pieceType == KING {
+						// even for queen side castle we can only jump 2 fields the other is just for vision
+						if abs(piece.position.x-j) <= 2 {
+							board.setMovement(piece, i, j)
+						}
+					} else {
+						board.setMovement(piece, i, j)
+					}
 				} else {
 					pieceAtPosition := board.pieces[board.position[i][j]]
 					if pieceAtPosition.isBlack != piece.isBlack {
