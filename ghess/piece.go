@@ -1,36 +1,42 @@
 package ghess
 
 func (board *Board) hasBlackCaptureVisionOn(pos Position) bool {
-	for _, piece := range board.pieces {
-		if !piece.onBoard || !piece.isBlack {
+	for pieceId := range board.pieces {
+		if !board.pieces[pieceId].onBoard || !board.pieces[pieceId].isBlack {
 			continue
 		}
-		if piece.vision[pos.y][pos.x] {
-			return piece.pieceType != PAWN || piece.position.x != pos.x
+		if board.pieces[pieceId].vision[pos.y][pos.x] {
+			return board.pieces[pieceId].pieceType != PAWN || board.pieces[pieceId].position.x != pos.x
 		}
 	}
 	return false
 }
 
 func (board *Board) hasWhiteCaptureVisionOn(pos Position) bool {
-	for _, piece := range board.pieces {
-		if !piece.onBoard || piece.isBlack {
+	for pieceId := range board.pieces {
+		if !board.pieces[pieceId].onBoard || board.pieces[pieceId].isBlack {
 			continue
 		}
-		if piece.vision[pos.y][pos.x] {
-			return piece.pieceType != PAWN || piece.position.x != pos.x
+		if board.pieces[pieceId].vision[pos.y][pos.x] {
+			return board.pieces[pieceId].pieceType != PAWN || board.pieces[pieceId].position.x != pos.x
 		}
 	}
 	return false
 }
 
+func (board *Board) setUpdateVisionOn(y, x int) {
+	for pieceId := range board.pieces {
+		if board.pieces[pieceId].vision[y][x] && board.pieces[pieceId].onBoard {
+			board.pieces[pieceId].updateVision = true
+		}
+	}
+}
+
 func (board *Board) updateVision() {
 	for pieceId := range board.pieces {
-		piece := board.pieces[pieceId]
-		if !piece.onBoard {
-			continue
+		if board.pieces[pieceId].updateVision {
+			board.updatePieceVision(&board.pieces[pieceId])
 		}
-		board.updatePieceVision(&board.pieces[pieceId])
 	}
 }
 
@@ -53,11 +59,8 @@ func (piece *Piece) setVision(y, x int) {
 
 // resetVision sets the vision to false
 func resetVision(piece *Piece) {
-	for i := 0; i < 8; i++ {
-		for j := 0; j < 8; j++ {
-			piece.vision[i][j] = false
-		}
-	}
+	var vision [8][8]bool
+	piece.vision = vision
 }
 
 func (board *Board) resetUpdateMovement() {
@@ -78,6 +81,7 @@ func (board *Board) setAllUpdateMovement() {
 
 func (board *Board) updatePieceVision(piece *Piece) {
 	piece.updateMovement = true
+	piece.updateVision = false
 	resetVision(piece)
 	piece.vision[piece.position.y][piece.position.x] = true
 	switch piece.pieceType {
@@ -372,10 +376,11 @@ func (board *Board) tempMove(piece *Piece, y, x int) (int, Move) {
 	// fmt.Println("captureY, captureX: ", captureY, captureX)
 
 	// update vision
-	board.updateVisionOnPosition(oy, ox)
-	board.updateVisionOnPosition(y, x)
+
+	board.setUpdateVisionOn(oy, ox)
+	board.setUpdateVisionOn(y, x)
 	if isCapture && (captureX != x || captureY != y) {
-		board.updateVisionOnPosition(captureY, captureX)
+		board.setUpdateVisionOn(captureY, captureX)
 	}
 
 	// en passant possible
@@ -383,7 +388,7 @@ func (board *Board) tempMove(piece *Piece, y, x int) (int, Move) {
 		if (piece.isBlack && y-oy == 2) || (!piece.isBlack && y-oy == -2) {
 			board.en_passant_position.y = (y + oy) / 2
 			board.en_passant_position.x = x
-			board.updateVisionOnPosition((y+oy)/2, x)
+			board.setUpdateVisionOn((y+oy)/2, x)
 		} else {
 			board.en_passant_position.y = 0
 			board.en_passant_position.x = 0
@@ -392,18 +397,23 @@ func (board *Board) tempMove(piece *Piece, y, x int) (int, Move) {
 		board.en_passant_position.y = 0
 		board.en_passant_position.x = 0
 	}
+	board.updateVision()
 
 	return capturedId, rookMove
 }
 
 func (board *Board) reverseMove(piece *Piece, y, x int, capturedId int, rookId int, boardPrimitives *BoardPrimitives) {
 	board.isBlack = !board.isBlack
+	updateAll := false
+	if board.lastMoveWasCheck {
+		updateAll = true
+	}
 	board.reverseTempMove(piece, y, x, capturedId, rookId, boardPrimitives)
 
-	board.updateVision()
-
 	board.updateCastlePrivileges()
-	board.setAllUpdateMovement()
+	if updateAll {
+		board.setAllUpdateMovement()
+	}
 
 	board.updateMovement()
 }

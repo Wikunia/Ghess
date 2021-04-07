@@ -36,13 +36,14 @@ type Piece struct {
 	moves          [32]Position
 	numMoves       int
 	updateMovement bool
+	updateVision   bool
 }
 
 func NewPiece(id int, position Position, pieceType rune, isBlack bool) Piece {
 	vision := [8][8]bool{}
 	movement := [8][8]bool{}
 	moves := [32]Position{}
-	return Piece{id: id, position: position, pieceType: pieceType, isBlack: isBlack, onBoard: true, vision: vision, movement: movement, moves: moves, numMoves: 0, updateMovement: false}
+	return Piece{id: id, position: position, pieceType: pieceType, isBlack: isBlack, onBoard: true, vision: vision, movement: movement, moves: moves, numMoves: 0, updateMovement: false, updateVision: true}
 }
 
 type Board struct {

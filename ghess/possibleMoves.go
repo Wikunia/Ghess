@@ -35,17 +35,17 @@ func (board *Board) GetNumberOfMoves(ply int, print bool) int {
 
 func (board *Board) getPossibleMoves() []Move {
 	var moves []Move
-	for _, piece := range board.pieces {
-		if !piece.onBoard {
+	for pieceId := range board.pieces {
+		if !board.pieces[pieceId].onBoard {
 			continue
 		}
 		// only the current isBlack can move
-		if piece.isBlack != board.isBlack {
+		if board.pieces[pieceId].isBlack != board.isBlack {
 			continue
 		}
-		positions := piece.moves[:piece.numMoves]
+		positions := board.pieces[pieceId].moves[:board.pieces[pieceId].numMoves]
 		for _, p := range positions {
-			moves = append(moves, board.newMove(piece.id, 0, p.y, p.x, false))
+			moves = append(moves, board.newMove(board.pieces[pieceId].id, 0, p.y, p.x, false))
 		}
 	}
 	return moves

@@ -87,3 +87,12 @@ func BenchmarkNumMoves(b *testing.B) {
 	}
 }
 */
+
+func BenchmarkNumMoves(b *testing.B) {
+	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+	board := GetBoardFromFen(startFEN)
+	board.MoveLongAlgebraic("e2-e4")
+	for i := 0; i < b.N; i++ {
+		board.GetNumberOfMoves(3, false)
+	}
+}
