@@ -17,7 +17,8 @@ socket.onmessage = function (event) {
 function resetSurrounding() {
     for (let i = 0; i < 8; i++) {
         for (let j = 0; j < 8; j++) {
-            field = document.querySelector("#square_"+i+"_"+j+"_overlay") 
+            let p = i*8 + j
+            field = document.querySelector("#square_"+p+"_overlay") 
             field.style.display = "none"
         }
         
@@ -30,7 +31,8 @@ function showSurrounding(jsonObj) {
     for (let i = 0; i < 8; i++) {
         for (let j = 0; j < 8; j++) {
             if (surrounding[i][j]) {
-                field = document.querySelector("#square_"+i+"_"+j+"_overlay") 
+                let p = i*8 + j
+                field = document.querySelector("#square_"+p+"_overlay") 
                 field.style.display = "block"
             } 
         }
@@ -44,8 +46,10 @@ function movePiece(move) {
         capturedPiece.style.display = "none";
     } 
     // can move to this position if en passant
-    piece.style.left = (move.toX*10)+"vmin";
-    piece.style.top = (move.toY*10)+"vmin";
+    var y = Math.floor(move.to/8);
+    var x = move.to % 8;
+    piece.style.left = (x*10)+"vmin";
+    piece.style.top = (y*10)+"vmin";
 }
 
 function onDragStart(event) {
@@ -91,16 +95,16 @@ function onDrop(event) {
     }
 }
 
-function sendMovePiece(pieceId, to) {
-    let [_,to_y,to_x] = to.split("_")
-    console.log(pieceId, " -> ", to_y, " ", to_x)
+function sendMovePiece(pieceId, toStr) {
+    let [_,to] = toStr.split("_")
+    console.log(pieceId, " -> ", to)
 
-    var data = JSON.stringify({"requestType": "move", "pieceId": parseInt(pieceId), "toY": parseInt(to_y), "toX": parseInt(to_x)});
+    var data = JSON.stringify({"requestType": "move", "pieceId": parseInt(pieceId), "to": parseInt(to)});
     socket.send(data);
 }
 
-function sendCapturePiece(pieceId, to) {
-    let [_,captureId] = to.split("_")
+function sendCapturePiece(pieceId, toStr) {
+    let [_,captureId] = toStr.split("_")
     console.log(pieceId, " -> ", captureId)
 
     var data = JSON.stringify({"requestType": "capture", "pieceId": parseInt(pieceId), "captureId": parseInt(captureId)});

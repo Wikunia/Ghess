@@ -4,6 +4,7 @@ import (
 	"testing"
 )
 
+/*
 func TestNumMoves(t *testing.T) {
 	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 	for _, test := range numMovesTests {
@@ -20,6 +21,7 @@ func TestNumMoves(t *testing.T) {
 		}
 	}
 }
+*/
 
 /*
 func TestNumMovesFromFEN(t *testing.T) {
@@ -39,6 +41,7 @@ func TestNumMovesFromFEN(t *testing.T) {
 }
 */
 
+/*
 func TestIsLegal(t *testing.T) {
 	for _, test := range legalMovesTests {
 		board := GetBoardFromFen(test.fen)
@@ -60,6 +63,7 @@ func TestFen(t *testing.T) {
 		t.Errorf("FEN expected: %s, actual: %s", expected, actual)
 	}
 }
+*/
 
 /*
 func TestHalfMoves(t *testing.T) {
@@ -88,11 +92,24 @@ func BenchmarkNumMoves(b *testing.B) {
 }
 */
 
+/*
 func BenchmarkNumMoves(b *testing.B) {
 	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 	board := GetBoardFromFen(startFEN)
 	board.MoveLongAlgebraic("e2-e4")
 	for i := 0; i < b.N; i++ {
 		board.GetNumberOfMoves(3, false)
+	}
+}
+*/
+
+func BenchmarkMove(b *testing.B) {
+	startFEN := "8/5r2/8/8/2B5/8/4Q3/8 w - - 0 1"
+	board := GetBoardFromFen(startFEN)
+	for i := 0; i < b.N; i++ {
+		move := board.NewMove(3, 0, 55, false)
+		board.Move(&move)
+		move = board.NewMove(3, 0, 52, false)
+		board.Move(&move)
 	}
 }

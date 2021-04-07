@@ -1,7 +1,5 @@
 package ghess
 
-import "fmt"
-
 func abs(x int) int {
 	if x < 0 {
 		return -x
@@ -9,10 +7,37 @@ func abs(x int) int {
 	return x
 }
 
+func min(x, y int) int {
+	if x <= y {
+		return x
+	}
+	return y
+}
+
+func xy(n int) (x, y int) {
+	y = n / 8
+	x = n % 8
+	return
+}
+
 func isInside(y, x int) bool {
 	return y >= 0 && y <= 7 && x >= 0 && x <= 7
 }
 
+func bits2array(bits uint64) [8][8]bool {
+	var res [8][8]bool
+	for i := 0; i < 8; i++ {
+		for j := 0; j < 8; j++ {
+			pos := i*8 + j
+			if bits&(1<<pos) != 0 {
+				res[i][j] = true
+			}
+		}
+	}
+	return res
+}
+
+/*
 func (board *Board) isFree(y, x int) bool {
 	if isInside(y, x) {
 		return board.position[y][x] == 0
@@ -69,3 +94,4 @@ func (board *Board) isEqual(otherBoard *Board) bool {
 	}
 	return true
 }
+*/
