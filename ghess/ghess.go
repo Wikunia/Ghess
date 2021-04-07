@@ -494,11 +494,18 @@ func Run() {
 			}
 
 			if isMove && board.isLegal(&move) {
-				board.Move(&move)
+				rookMove := board.Move(&move)
 				err = c.WriteJSON(JSONRequest{RequestType: "move", PieceId: move.pieceId, CaptureId: move.captureId, To: move.to})
 				if err != nil {
 					log.Println("write:", err)
 					break
+				}
+				if rookMove.pieceId != 0 {
+					err = c.WriteJSON(JSONRequest{RequestType: "move", PieceId: rookMove.pieceId, CaptureId: 0, To: rookMove.to})
+					if err != nil {
+						log.Println("rookMove write:", err)
+						break
+					}
 				}
 			}
 

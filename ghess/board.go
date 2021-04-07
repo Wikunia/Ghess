@@ -90,6 +90,8 @@ func (board *Board) setMovement() {
 			board.setKnightMovement(&board.pieces[pieceId])
 		case PAWN:
 			board.setPawnMovement(&board.pieces[pieceId])
+		case KING:
+			board.setKingMovement(&board.pieces[pieceId])
 		}
 	}
 }
@@ -193,6 +195,51 @@ func (board *Board) setPawnMovement(piece *Piece) {
 	}
 }
 
+// setKingMovement sets the possible movements for a king
+func (board *Board) setKingMovement(piece *Piece) {
+	directions := [8]int{NORTH, SOUTH, WEST, EAST, NORTH_EAST, NORTH_WEST, SOUTH_EAST, SOUTH_WEST}
+
+	// normal movement
+	for dirId := 0; dirId < 8; dirId++ {
+		if board.movesTilEdge[piece.pos][dirId] >= 1 {
+			pos := piece.pos + directions[dirId]
+			if !board.sameColoredPieceOn(piece, pos) {
+				piece.movementB |= 1 << (pos)
+			}
+		}
+	}
+
+	// castle
+	if piece.isBlack {
+		if board.black_castle_king {
+			// check if positions are free
+			if board.pos2PieceId[piece.pos+EAST] == 0 && board.pos2PieceId[piece.pos+2*EAST] == 0 {
+				piece.movementB |= 1 << (piece.pos + 2*EAST)
+			}
+		}
+		if board.black_castle_queen {
+			// check if positions are free
+			if board.pos2PieceId[piece.pos+WEST] == 0 && board.pos2PieceId[piece.pos+2*WEST] == 0 && board.pos2PieceId[piece.pos+3*WEST] == 0 {
+				piece.movementB |= 1 << (piece.pos + 3*WEST)
+			}
+		}
+	}
+	// and for white
+	// todo: refactor
+	if board.white_castle_king {
+		// check if positions are free
+		if board.pos2PieceId[piece.pos+EAST] == 0 && board.pos2PieceId[piece.pos+2*EAST] == 0 {
+			piece.movementB |= 1 << (piece.pos + 2*EAST)
+		}
+	}
+	if board.white_castle_queen {
+		// check if positions are free
+		if board.pos2PieceId[piece.pos+WEST] == 0 && board.pos2PieceId[piece.pos+2*WEST] == 0 && board.pos2PieceId[piece.pos+3*WEST] == 0 {
+			piece.movementB |= 1 << (piece.pos + 3*WEST)
+		}
+	}
+}
+
 // NewMove creates a move object given a pieceId, to and checks whether the move is a capture. If isCapture is set to true
 func (board *Board) NewMove(pieceId int, captureId int, to int) Move {
 	from := board.pieces[pieceId].pos
@@ -212,7 +259,7 @@ func (board *Board) NewMove(pieceId int, captureId int, to int) Move {
 	return Move{pieceId: pieceId, captureId: captureId, from: from, to: to}
 }
 
-func (board *Board) Move(m *Move) {
+func (board *Board) Move(m *Move) Move {
 	forward := NORTH
 	if board.pieces[m.pieceId].isBlack {
 		forward = SOUTH
@@ -238,9 +285,30 @@ func (board *Board) Move(m *Move) {
 		board.en_passant_pos = -1
 	}
 
-	board.setMovement()
+	// check if castled
+	piece := board.pieces[m.pieceId]
+	isCastle := false
+	rookMove := Move{}
+	if piece.pieceType == KING {
+		if m.from+2*EAST == m.to {
+			isCastle = true
+			rookMove = board.NewMove(board.pos2PieceId[m.from+3*EAST], 0, m.from+EAST)
+		} else if m.from+2*WEST == m.to {
+			isCastle = true
+			rookMove = board.NewMove(board.pos2PieceId[m.from+4*WEST], 0, m.from+WEST)
+		}
+	}
 
-	board.isBlacksTurn = !board.isBlacksTurn
+	if isCastle {
+		board.Move(&rookMove)
+	} else {
+		board.updateCastleRights(m)
+
+		board.setMovement()
+
+		board.isBlacksTurn = !board.isBlacksTurn
+	}
+	return rookMove
 }
 
 func (board *Board) isLegal(m *Move) bool {
@@ -249,4 +317,56 @@ func (board *Board) isLegal(m *Move) bool {
 		return piece.canMoveTo(m.to)
 	}
 	return false
+}
+
+func (board *Board) updateCastleRights(m *Move) {
+	// if king moved remove the right for both sides
+	piece := board.pieces[m.pieceId]
+	if piece.pieceType == KING {
+		if piece.isBlack {
+			board.black_castle_king = false
+			board.black_castle_queen = false
+		} else {
+			board.white_castle_king = false
+			board.white_castle_queen = false
+		}
+	}
+	// if rook moves remove the castle right for that side
+	if piece.pieceType == ROOK {
+		file, _ := xy(m.from)
+		if file == 7 {
+			if piece.isBlack {
+				board.black_castle_king = false
+			} else {
+				board.white_castle_king = false
+			}
+		} else if file == 0 {
+			if piece.isBlack {
+				board.black_castle_queen = false
+			} else {
+				board.white_castle_queen = false
+			}
+		}
+	}
+
+	// if rook gets captured
+	if m.captureId > 0 {
+		capturedPiece := board.pieces[m.captureId]
+		file, _ := xy(m.to)
+		if capturedPiece.pieceType == ROOK {
+			if capturedPiece.isBlack {
+				if file == 7 {
+					board.black_castle_king = false
+				} else {
+					board.black_castle_queen = false
+				}
+			} else {
+				if file == 7 {
+					board.white_castle_king = false
+				} else {
+					board.white_castle_queen = false
+				}
+			}
+		}
+	}
 }
