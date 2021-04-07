@@ -31,15 +31,12 @@ type Piece struct {
 	posB      uint64 // binary position from 0...1 to 1...0
 	pieceType rune   // lower case 'k',...,'p' see KING, ... , PAWN constants
 	isBlack   bool
-	movementB uint64  // possible movement of this piece encoded similarly to posB
-	moves     [32]int // list of integer positions we can move to
-	numMoves  int
+	movementB uint64 // possible movement of this piece encoded similarly to posB
 }
 
 func NewPiece(id int, pos int, pieceType rune, isBlack bool) Piece {
-	moves := [32]int{}
 	var posB uint64 = 1 << pos
-	return Piece{id: id, pos: pos, posB: posB, pieceType: pieceType, isBlack: isBlack, movementB: 0, moves: moves, numMoves: 0}
+	return Piece{id: id, pos: pos, posB: posB, pieceType: pieceType, isBlack: isBlack, movementB: 0}
 }
 
 type Board struct {
@@ -56,7 +53,7 @@ type Board struct {
 	white_castle_queen bool
 	black_castle_king  bool
 	black_castle_queen bool
-	en_passant_posB    uint64 // will be 0 if not possible
+	en_passant_pos     int // will be -1 if not possible
 	halfMoves          int
 	nextMove           int
 	whiteKingId        int
@@ -69,7 +66,7 @@ func NewBoard(pieces [33]Piece, whiteIds [16]int, blackIds [16]int, isBlack bool
 	white_castle_queen bool,
 	black_castle_king bool,
 	black_castle_queen bool,
-	en_passant_posB uint64, halfMoves int, nextMove int, whiteKingId int, blackKingId int) Board {
+	en_passant_pos int, halfMoves int, nextMove int, whiteKingId int, blackKingId int) Board {
 
 	var pos2PieceId [64]int
 	for _, piece := range pieces {
@@ -89,7 +86,7 @@ func NewBoard(pieces [33]Piece, whiteIds [16]int, blackIds [16]int, isBlack bool
 		white_castle_queen: white_castle_queen,
 		black_castle_king:  black_castle_king,
 		black_castle_queen: black_castle_queen,
-		en_passant_posB:    en_passant_posB,
+		en_passant_pos:     en_passant_pos,
 		halfMoves:          halfMoves,
 		nextMove:           nextMove,
 		whiteKingId:        whiteKingId,
@@ -319,11 +316,11 @@ func GetBoardFromFen(fen string) Board {
 	if parts[1][0] == 'b' {
 		isBlack = true
 	}
-	var en_passant_posB uint64
+	var en_passant_pos int
 	if parts[3][0] != '-' {
 		y := 8 - int(parts[3][1]-'0')
 		x := int(parts[3][0] - 'a')
-		en_passant_posB = 1 << (x + 8*y)
+		en_passant_pos = x + 8*y
 	}
 	// fmt.Println("en_passant_position: ", en_passant_position)
 
@@ -344,7 +341,7 @@ func GetBoardFromFen(fen string) Board {
 		white_castle_queen,
 		black_castle_king,
 		black_castle_queen,
-		en_passant_posB, halfMoves, nextMove, whiteKingId, blackKingId)
+		en_passant_pos, halfMoves, nextMove, whiteKingId, blackKingId)
 	return board
 }
 
@@ -446,8 +443,8 @@ func Run() {
 
 	app.Static("/", "./../ghess/public")
 
-	// board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-	board := GetBoardFromFen("8/5r2/8/8/2B5/8/4Q3/8 w - - 0 1")
+	board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+	// board := GetBoardFromFen("8/5r2/8/8/2B5/8/4Q3/8 w - - 0 1")
 	// board := GetBoardFromFen("rnbqkbnr/pppp1ppp/8/4p3/8/5N2/PPPP1PPP/4K3 b KQkq - 0 1")
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPB1PPP/R3K2R w KQkq a3 0 0")
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/1n2pnp1/1b1PN3/Pp2P3/5Q1p/1PPB1PPP/R3K2R w KQkq - 0 0")
@@ -491,15 +488,12 @@ func Run() {
 			switch jsonObj.RequestType {
 			case "movement":
 				c.WriteJSON(JSONSurrounding{RequestType: "surrounding", Surrounding: bits2array(board.pieces[jsonObj.PieceId].movementB)})
-			case "move":
+			case "move", "capture":
 				isMove = true
-				move = board.NewMove(jsonObj.PieceId, jsonObj.CaptureId, jsonObj.To, false)
-			case "capture":
-				isMove = true
-				move = board.NewMove(jsonObj.PieceId, jsonObj.CaptureId, jsonObj.To, true)
+				move = board.NewMove(jsonObj.PieceId, jsonObj.CaptureId, jsonObj.To)
 			}
 
-			if isMove && board.pieces[move.pieceId].canMoveTo(move.to) {
+			if isMove && board.isLegal(&move) {
 				board.Move(&move)
 				err = c.WriteJSON(JSONRequest{RequestType: "move", PieceId: move.pieceId, CaptureId: move.captureId, To: move.to})
 				if err != nil {

@@ -107,9 +107,9 @@ func BenchmarkMove(b *testing.B) {
 	startFEN := "8/5r2/8/8/2B5/8/4Q3/8 w - - 0 1"
 	board := GetBoardFromFen(startFEN)
 	for i := 0; i < b.N; i++ {
-		move := board.NewMove(3, 0, 55, false)
+		move := board.NewMove(3, 0, 55)
 		board.Move(&move)
-		move = board.NewMove(3, 0, 52, false)
+		move = board.NewMove(3, 0, 52)
 		board.Move(&move)
 	}
 }
