@@ -4,42 +4,42 @@ import (
 	"testing"
 )
 
-/*
 func TestNumMoves(t *testing.T) {
 	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 	for _, test := range numMovesTests {
 		board := GetBoardFromFen(startFEN)
-		for _, moveStr := range test.moves {
-			err := board.MoveLongAlgebraic(moveStr)
-			if err != nil {
-				t.Errorf(err.Error())
+		/*
+			for _, moveStr := range test.moves {
+				err := board.MoveLongAlgebraic(moveStr)
+				if err != nil {
+					t.Errorf(err.Error())
+				}
 			}
-		}
+		*/
 		n := board.GetNumberOfMoves(test.ply, false)
 		if n != test.expected {
 			t.Errorf("Moves(%v) with ply: %d expected %d, Actual %d", test.moves, test.ply, test.expected, n)
 		}
 	}
 }
-*/
 
-/*
 func TestNumMovesFromFEN(t *testing.T) {
 	for _, test := range numMovesFromFENTests {
 		board := GetBoardFromFen(test.fen)
-		for _, moveStr := range test.moves {
-			err := board.MoveLongAlgebraic(moveStr)
-			if err != nil {
-				t.Errorf(err.Error())
-			}
-		}
-		n := board.GetNumberOfMoves(test.ply, true)
+		/*
+			for _, moveStr := range test.moves {
+					err := board.MoveLongAlgebraic(moveStr)
+					if err != nil {
+						t.Errorf(err.Error())
+					}
+				}
+		*/
+		n := board.GetNumberOfMoves(test.ply, board.isBlacksTurn)
 		if n != test.expected {
 			t.Errorf("Fen(%s) + moves: %v with ply: %d expected %d, Actual %d", test.fen, test.moves, test.ply, test.expected, n)
 		}
 	}
 }
-*/
 
 /*
 func TestIsLegal(t *testing.T) {
@@ -53,6 +53,7 @@ func TestIsLegal(t *testing.T) {
 		}
 	}
 }
+*/
 
 func TestFen(t *testing.T) {
 	// not an actual FEN
@@ -63,7 +64,6 @@ func TestFen(t *testing.T) {
 		t.Errorf("FEN expected: %s, actual: %s", expected, actual)
 	}
 }
-*/
 
 /*
 func TestHalfMoves(t *testing.T) {
@@ -103,13 +103,11 @@ func BenchmarkNumMoves(b *testing.B) {
 }
 */
 
-func BenchmarkMove(b *testing.B) {
+func BenchmarkNumMove(b *testing.B) {
 	startFEN := "8/5r2/8/8/2B5/8/4Q3/8 w - - 0 1"
 	board := GetBoardFromFen(startFEN)
+
 	for i := 0; i < b.N; i++ {
-		move := board.NewMove(3, 0, 55)
-		board.Move(&move)
-		move = board.NewMove(3, 0, 52)
-		board.Move(&move)
+		board.GetNumberOfMoves(2, false)
 	}
 }

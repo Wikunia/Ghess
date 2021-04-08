@@ -37,44 +37,35 @@ func bits2array(bits uint64) [8][8]bool {
 	return res
 }
 
-/*
-func (board *Board) isFree(y, x int) bool {
-	if isInside(y, x) {
-		return board.position[y][x] == 0
-	}
-	return false
-}
-
 func (board *Board) getBoardPrimitives() BoardPrimitives {
 	return BoardPrimitives{
-		isBlack:             board.isBlack,
-		white_castle_king:   board.white_castle_king,
-		white_castle_queen:  board.white_castle_queen,
-		black_castle_king:   board.black_castle_king,
-		black_castle_queen:  board.black_castle_queen,
-		en_passant_position: Position{x: board.en_passant_position.x, y: board.en_passant_position.y},
-		halfMoves:           board.halfMoves,
-		nextMove:            board.nextMove,
-		whiteKingId:         board.whiteKingId,
-		blackKingId:         board.blackKingId,
-		lastMoveWasCheck:    board.lastMoveWasCheck,
+		isBlacksTurn:       board.isBlacksTurn,
+		white_castle_king:  board.white_castle_king,
+		white_castle_queen: board.white_castle_queen,
+		black_castle_king:  board.black_castle_king,
+		black_castle_queen: board.black_castle_queen,
+		en_passant_pos:     board.en_passant_pos,
+		halfMoves:          board.halfMoves,
+		nextMove:           board.nextMove,
+		whiteKingId:        board.whiteKingId,
+		blackKingId:        board.blackKingId,
 	}
 }
 
 func (board *Board) setBoardPrimitives(bp *BoardPrimitives) {
-	board.isBlack = bp.isBlack
+	board.isBlacksTurn = bp.isBlacksTurn
 	board.white_castle_king = bp.white_castle_king
 	board.white_castle_queen = bp.white_castle_queen
 	board.black_castle_king = bp.black_castle_king
 	board.black_castle_queen = bp.black_castle_queen
-	board.en_passant_position.x = bp.en_passant_position.x
-	board.en_passant_position.y = bp.en_passant_position.y
+	board.en_passant_pos = bp.en_passant_pos
 	board.halfMoves = bp.halfMoves
 	board.nextMove = bp.nextMove
 	board.whiteKingId = bp.whiteKingId
 	board.blackKingId = bp.blackKingId
 }
 
+/*
 func (board *Board) isEqual(otherBoard *Board) bool {
 	for i := 0; i < 8; i++ {
 		for j := 0; j < 8; j++ {

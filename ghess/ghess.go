@@ -32,11 +32,14 @@ type Piece struct {
 	pieceType rune   // lower case 'k',...,'p' see KING, ... , PAWN constants
 	isBlack   bool
 	movementB uint64 // possible movement of this piece encoded similarly to posB
+	moves     [28]int
+	numMoves  int
 }
 
 func NewPiece(id int, pos int, pieceType rune, isBlack bool) Piece {
+	var moves [28]int
 	var posB uint64 = 1 << pos
-	return Piece{id: id, pos: pos, posB: posB, pieceType: pieceType, isBlack: isBlack, movementB: 0}
+	return Piece{id: id, pos: pos, posB: posB, pieceType: pieceType, isBlack: isBlack, movementB: 0, moves: moves, numMoves: 0}
 }
 
 type Board struct {
@@ -58,7 +61,21 @@ type Board struct {
 	nextMove           int
 	whiteKingId        int
 	blackKingId        int
+	checkForChecks     bool // set to false if one wants to get movements that can capture the king even though the move itself would lead to check
 	movesTilEdge       [64][8]int
+}
+
+type BoardPrimitives struct {
+	isBlacksTurn       bool
+	white_castle_king  bool
+	white_castle_queen bool
+	black_castle_king  bool
+	black_castle_queen bool
+	en_passant_pos     int // will be -1 if not possible
+	halfMoves          int
+	nextMove           int
+	whiteKingId        int
+	blackKingId        int
 }
 
 func NewBoard(pieces [33]Piece, whiteIds [16]int, blackIds [16]int, isBlack bool,
@@ -91,6 +108,7 @@ func NewBoard(pieces [33]Piece, whiteIds [16]int, blackIds [16]int, isBlack bool
 		nextMove:           nextMove,
 		whiteKingId:        whiteKingId,
 		blackKingId:        blackKingId,
+		checkForChecks:     true,
 		movesTilEdge:       getMovesTilEdge(),
 	}
 
@@ -153,7 +171,6 @@ func getPieceName(piece *Piece) string {
 	return "NONAME"
 }
 
-/*
 func (board *Board) getFen() string {
 	fen := ""
 	n := 0
@@ -161,7 +178,8 @@ func (board *Board) getFen() string {
 	for y := 0; y < 8; y++ {
 		n = 0
 		for x := 0; x < 8; x++ {
-			pieceId = board.position[y][x]
+			p := y*8 + x
+			pieceId = board.pos2PieceId[p]
 			if pieceId == 0 {
 				n += 1
 			} else {
@@ -187,7 +205,7 @@ func (board *Board) getFen() string {
 
 	fen += " "
 	isBlackInitial := "w"
-	if board.isBlack {
+	if board.isBlacksTurn {
 		isBlackInitial = "b"
 	}
 	fen += isBlackInitial
@@ -206,9 +224,10 @@ func (board *Board) getFen() string {
 		fen += "q"
 	}
 	fen += " "
-	if board.en_passant_position.x != 0 {
-		fen += string(rune('a' + board.en_passant_position.x))
-		fen += strconv.Itoa(8 - board.en_passant_position.y)
+	if board.en_passant_pos >= 0 {
+		x, y := xy(board.en_passant_pos)
+		fen += string(rune('a' + x))
+		fen += strconv.Itoa(8 - y)
 	} else {
 		fen += "-"
 	}
@@ -221,6 +240,7 @@ func (board *Board) getFen() string {
 	return fen
 }
 
+/*
 func (board *Board) moveToToLongAlgebraic(fromY, fromX, toY, toX int) string {
 	res := string(rune('a' + fromX))
 	res += strconv.Itoa(8 - fromY)
@@ -316,7 +336,7 @@ func GetBoardFromFen(fen string) Board {
 	if parts[1][0] == 'b' {
 		isBlack = true
 	}
-	var en_passant_pos int
+	en_passant_pos := -1
 	if parts[3][0] != '-' {
 		y := 8 - int(parts[3][1]-'0')
 		x := int(parts[3][0] - 'a')
@@ -444,10 +464,15 @@ func Run() {
 	app.Static("/", "./../ghess/public")
 
 	board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+	// board := GetBoardFromFen("4k2r/5pp1/8/6Pp/8/8/6PP/4K2R w K h6 0 1")
 	// board := GetBoardFromFen("8/5r2/8/8/2B5/8/4Q3/8 w - - 0 1")
 	// board := GetBoardFromFen("rnbqkbnr/pppp1ppp/8/4p3/8/5N2/PPPP1PPP/4K3 b KQkq - 0 1")
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPB1PPP/R3K2R w KQkq a3 0 0")
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/1n2pnp1/1b1PN3/Pp2P3/5Q1p/1PPB1PPP/R3K2R w KQkq - 0 0")
+
+	// board.GetNumberOfMoves(2, false)
+	// fmt.Println("white castle king: ", board.white_castle_king)
+	// fmt.Println("isBlacksTurn: ", board.isBlacksTurn)
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		// Render index

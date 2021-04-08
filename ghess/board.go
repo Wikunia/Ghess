@@ -65,7 +65,7 @@ func (board *Board) oppositeColoredPieceOn(piece *Piece, pos int) bool {
 	}
 }
 
-// combinePositionsOf combies the positions of all specified pieces and outputs the combined position as uint64
+// combinePositionsOf combies the positions of all specified pieces and outputs the combined positions as uint64
 func (board *Board) combinePositionsOf(pieceIds [16]int) uint64 {
 	var posB uint64
 	for _, pieceId := range pieceIds {
@@ -74,9 +74,19 @@ func (board *Board) combinePositionsOf(pieceIds [16]int) uint64 {
 	return posB
 }
 
+// combineMovementsOf combies the movements of all specified pieces and outputs the combined movements as uint64
+func (board *Board) combineMovementsOf(pieceIds [16]int) uint64 {
+	var posB uint64
+	for _, pieceId := range pieceIds {
+		posB |= board.pieces[pieceId].movementB
+	}
+	return posB
+}
+
 // setMovement updates the movement of all pieces
 func (board *Board) setMovement() {
 	for pieceId := range board.pieces {
+		board.pieces[pieceId].numMoves = 0
 		// piece is not on board
 		if board.pieces[pieceId].posB == 0 {
 			continue
@@ -94,6 +104,9 @@ func (board *Board) setMovement() {
 			board.setKingMovement(&board.pieces[pieceId])
 		}
 	}
+
+	board.whitePieceMovB = board.combineMovementsOf(board.whiteIds)
+	board.blackPieceMovB = board.combineMovementsOf(board.blackIds)
 }
 
 // setSlidingpieceMovement sets the possible movements for a queen, rook or bishop (does not check if it's a right piece)
@@ -116,7 +129,7 @@ func (board *Board) setSlidingpieceMovement(piece *Piece) {
 			if (piece.isBlack && board.hasBlackPieceOn(pos)) || (!piece.isBlack && board.hasWhitePieceOn(pos)) {
 				break
 			}
-			piece.movementB |= 1 << pos
+			board.setMovementIfNotCheck(piece, pos)
 			// capture
 			if (!piece.isBlack && board.hasBlackPieceOn(pos)) || (piece.isBlack && board.hasWhitePieceOn(pos)) {
 				break
@@ -137,19 +150,19 @@ func (board *Board) setKnightMovement(piece *Piece) {
 
 		if dirS > 0 && dirE > 0 { // jump south east
 			if board.movesTilEdge[piece.pos][SOUTH_ID] >= dirS && board.movesTilEdge[piece.pos][EAST_ID] >= dirE && !board.sameColoredPieceOn(piece, pos) {
-				piece.movementB |= 1 << pos
+				board.setMovementIfNotCheck(piece, pos)
 			}
 		} else if dirS > 0 && dirE < 0 { // jump south west
 			if board.movesTilEdge[piece.pos][SOUTH_ID] >= dirS && board.movesTilEdge[piece.pos][WEST_ID] >= -dirE && !board.sameColoredPieceOn(piece, pos) {
-				piece.movementB |= 1 << pos
+				board.setMovementIfNotCheck(piece, pos)
 			}
 		} else if dirS < 0 && dirE > 0 { // jump north east
 			if board.movesTilEdge[piece.pos][NORTH_ID] >= -dirS && board.movesTilEdge[piece.pos][EAST_ID] >= dirE && !board.sameColoredPieceOn(piece, pos) {
-				piece.movementB |= 1 << pos
+				board.setMovementIfNotCheck(piece, pos)
 			}
 		} else if dirS < 0 && dirE < 0 { // jump north west
 			if board.movesTilEdge[piece.pos][NORTH_ID] >= -dirS && board.movesTilEdge[piece.pos][WEST_ID] >= -dirE && !board.sameColoredPieceOn(piece, pos) {
-				piece.movementB |= 1 << pos
+				board.setMovementIfNotCheck(piece, pos)
 			}
 		}
 	}
@@ -169,29 +182,29 @@ func (board *Board) setPawnMovement(piece *Piece) {
 
 	// one move forward
 	if board.movesTilEdge[piece.pos][forwardID] >= 1 && board.pos2PieceId[piece.pos+forward] == 0 {
-		piece.movementB |= 1 << (piece.pos + forward)
+		board.setMovementIfNotCheck(piece, (piece.pos + forward))
 	}
 	// two steps forward
-	if rank == startRank && board.pos2PieceId[piece.pos+2*forward] == 0 {
-		piece.movementB |= 1 << (piece.pos + 2*forward)
+	if rank == startRank && board.pos2PieceId[piece.pos+2*forward] == 0 && board.pos2PieceId[piece.pos+forward] == 0 {
+		board.setMovementIfNotCheck(piece, (piece.pos + 2*forward))
 	}
 
 	// normal capture forward east
 	if board.oppositeColoredPieceOn(piece, piece.pos+forward+EAST) && board.movesTilEdge[piece.pos][EAST_ID] >= 1 {
-		piece.movementB |= 1 << (piece.pos + forward + EAST)
+		board.setMovementIfNotCheck(piece, (piece.pos + forward + EAST))
 	}
 	// normal capture forward west
 	if board.oppositeColoredPieceOn(piece, piece.pos+forward+WEST) && board.movesTilEdge[piece.pos][WEST_ID] >= 1 {
-		piece.movementB |= 1 << (piece.pos + forward + WEST)
+		board.setMovementIfNotCheck(piece, (piece.pos + forward + WEST))
 	}
 	// en passant capture
 	if board.en_passant_pos == -1 {
 		return
 	}
 	if piece.pos+forward+EAST == board.en_passant_pos {
-		piece.movementB |= 1 << (piece.pos + forward + EAST)
+		board.setMovementIfNotCheck(piece, (piece.pos + forward + EAST))
 	} else if piece.pos+forward+WEST == board.en_passant_pos {
-		piece.movementB |= 1 << (piece.pos + forward + WEST)
+		board.setMovementIfNotCheck(piece, (piece.pos + forward + WEST))
 	}
 }
 
@@ -204,7 +217,7 @@ func (board *Board) setKingMovement(piece *Piece) {
 		if board.movesTilEdge[piece.pos][dirId] >= 1 {
 			pos := piece.pos + directions[dirId]
 			if !board.sameColoredPieceOn(piece, pos) {
-				piece.movementB |= 1 << (pos)
+				board.setMovementIfNotCheck(piece, (pos))
 			}
 		}
 	}
@@ -214,28 +227,29 @@ func (board *Board) setKingMovement(piece *Piece) {
 		if board.black_castle_king {
 			// check if positions are free
 			if board.pos2PieceId[piece.pos+EAST] == 0 && board.pos2PieceId[piece.pos+2*EAST] == 0 {
-				piece.movementB |= 1 << (piece.pos + 2*EAST)
+				board.setMovementIfNotCheck(piece, (piece.pos + 2*EAST))
 			}
 		}
 		if board.black_castle_queen {
 			// check if positions are free
 			if board.pos2PieceId[piece.pos+WEST] == 0 && board.pos2PieceId[piece.pos+2*WEST] == 0 && board.pos2PieceId[piece.pos+3*WEST] == 0 {
-				piece.movementB |= 1 << (piece.pos + 3*WEST)
+				board.setMovementIfNotCheck(piece, (piece.pos + 3*WEST))
 			}
 		}
-	}
-	// and for white
-	// todo: refactor
-	if board.white_castle_king {
-		// check if positions are free
-		if board.pos2PieceId[piece.pos+EAST] == 0 && board.pos2PieceId[piece.pos+2*EAST] == 0 {
-			piece.movementB |= 1 << (piece.pos + 2*EAST)
+	} else {
+		// and for white
+		// todo: refactor
+		if board.white_castle_king {
+			// check if positions are free
+			if board.pos2PieceId[piece.pos+EAST] == 0 && board.pos2PieceId[piece.pos+2*EAST] == 0 {
+				board.setMovementIfNotCheck(piece, (piece.pos + 2*EAST))
+			}
 		}
-	}
-	if board.white_castle_queen {
-		// check if positions are free
-		if board.pos2PieceId[piece.pos+WEST] == 0 && board.pos2PieceId[piece.pos+2*WEST] == 0 && board.pos2PieceId[piece.pos+3*WEST] == 0 {
-			piece.movementB |= 1 << (piece.pos + 3*WEST)
+		if board.white_castle_queen {
+			// check if positions are free
+			if board.pos2PieceId[piece.pos+WEST] == 0 && board.pos2PieceId[piece.pos+2*WEST] == 0 && board.pos2PieceId[piece.pos+3*WEST] == 0 {
+				board.setMovementIfNotCheck(piece, (piece.pos + 3*WEST))
+			}
 		}
 	}
 }
@@ -259,19 +273,20 @@ func (board *Board) NewMove(pieceId int, captureId int, to int) Move {
 	return Move{pieceId: pieceId, captureId: captureId, from: from, to: to}
 }
 
-func (board *Board) Move(m *Move) Move {
+func (board *Board) TempMove(m *Move) Move {
 	forward := NORTH
 	if board.pieces[m.pieceId].isBlack {
 		forward = SOUTH
 	}
 
 	if m.captureId != 0 {
+		// important for en passant
+		board.pos2PieceId[board.pieces[m.captureId].pos] = 0
 		board.pieces[m.captureId].pos = -1
 		board.pieces[m.captureId].posB = 0
 	}
 	board.pieces[m.pieceId].pos = m.to
-	var posB uint64 = 1 << m.to
-	board.pieces[m.pieceId].posB = posB
+	board.pieces[m.pieceId].posB = 1 << m.to
 	board.pos2PieceId[m.from] = 0
 	board.pos2PieceId[m.to] = m.pieceId
 
@@ -280,7 +295,6 @@ func (board *Board) Move(m *Move) Move {
 
 	if board.pieces[m.pieceId].pieceType == PAWN && (m.to-m.from) == 2*forward {
 		board.en_passant_pos = m.from + forward
-		fmt.Println("en passant: ", board.en_passant_pos)
 	} else {
 		board.en_passant_pos = -1
 	}
@@ -289,7 +303,9 @@ func (board *Board) Move(m *Move) Move {
 	piece := board.pieces[m.pieceId]
 	isCastle := false
 	rookMove := Move{}
-	if piece.pieceType == KING {
+	// should not trigger for rverse castle
+	x, _ := xy(m.from)
+	if piece.pieceType == KING && x == 4 {
 		if m.from+2*EAST == m.to {
 			isCastle = true
 			rookMove = board.NewMove(board.pos2PieceId[m.from+3*EAST], 0, m.from+EAST)
@@ -298,17 +314,70 @@ func (board *Board) Move(m *Move) Move {
 			rookMove = board.NewMove(board.pos2PieceId[m.from+4*WEST], 0, m.from+WEST)
 		}
 	}
-
 	if isCastle {
-		board.Move(&rookMove)
-	} else {
-		board.updateCastleRights(m)
-
-		board.setMovement()
-
-		board.isBlacksTurn = !board.isBlacksTurn
+		board.TempMove(&rookMove)
 	}
 	return rookMove
+}
+
+func (board *Board) Move(m *Move) Move {
+	rookMove := board.TempMove(m)
+
+	board.updateCastleRights(m)
+
+	board.setMovement()
+
+	board.isBlacksTurn = !board.isBlacksTurn
+	return rookMove
+}
+
+func (board *Board) reverseMove(m *Move, boardPrimitives *BoardPrimitives) {
+	move := board.NewMove(m.pieceId, 0, m.from)
+	fmt.Println("m.PieceId: ", m.pieceId)
+	fmt.Println("m.captureId: ", m.captureId)
+	fmt.Println("boardPrimitives.en_passant_pos: ", boardPrimitives.en_passant_pos)
+	fmt.Println("m.to ", m.to)
+	fmt.Println("====================================")
+	if m.captureId != 0 {
+		// en passant capture
+		if boardPrimitives.en_passant_pos == m.to && board.pieces[m.pieceId].pieceType == PAWN {
+			posOfCapturedPawn := 0
+			if board.pieces[m.pieceId].isBlack {
+				// white pawn was captured
+				posOfCapturedPawn = boardPrimitives.en_passant_pos - 8
+			} else {
+				// black pawn was captured
+				posOfCapturedPawn = boardPrimitives.en_passant_pos + 8
+			}
+			fmt.Println("pos of captured pawn: ", posOfCapturedPawn)
+			board.pieces[m.captureId].pos = posOfCapturedPawn
+			board.pieces[m.captureId].posB = 1 << posOfCapturedPawn
+			board.pos2PieceId[posOfCapturedPawn] = m.captureId
+		} else {
+			board.pieces[m.captureId].pos = m.to
+			board.pieces[m.captureId].posB = 1 << m.to
+			board.pos2PieceId[m.to] = m.captureId
+		}
+	}
+	if board.pieces[m.pieceId].pieceType == KING {
+		_, y := xy(m.from)
+		// king side
+		if m.to-m.from == 2 {
+			rookId := board.pos2PieceId[y*8+5]
+			reverseCastleMove := board.NewMove(rookId, 0, y*8+7)
+			board.TempMove(&reverseCastleMove)
+		} else if m.to-m.from == -2 { // queen side
+			rookId := board.pos2PieceId[y*8+3]
+			reverseCastleMove := board.NewMove(rookId, 0, y*8)
+			board.TempMove(&reverseCastleMove)
+		}
+	}
+
+	board.TempMove(&move)
+
+	// resets castle and en passant rights which is important for setMovement
+	board.setBoardPrimitives(boardPrimitives)
+	board.setMovement()
 }
 
 func (board *Board) isLegal(m *Move) bool {
@@ -317,6 +386,12 @@ func (board *Board) isLegal(m *Move) bool {
 		return piece.canMoveTo(m.to)
 	}
 	return false
+}
+
+func (board *Board) setMovementIfNotCheck(piece *Piece, pos int) {
+	piece.movementB |= 1 << pos
+	piece.moves[piece.numMoves] = pos
+	piece.numMoves++
 }
 
 func (board *Board) updateCastleRights(m *Move) {

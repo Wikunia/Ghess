@@ -28,6 +28,7 @@ require (
 	github.com/stretchr/objx v0.3.0 // indirect
 	github.com/tomarrell/wrapcheck v1.1.0 // indirect
 	github.com/uber/go-torch v0.0.0-20181107071353-86f327cc820e // indirect
+	github.com/ulule/deepcopier v0.0.0-20200430083143-45decc6639b6 // indirect
 	github.com/valyala/fasthttp v1.23.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	golang.org/x/mod v0.4.2 // indirect
