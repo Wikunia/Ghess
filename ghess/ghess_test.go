@@ -8,14 +8,12 @@ func TestNumMoves(t *testing.T) {
 	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 	for _, test := range numMovesTests {
 		board := GetBoardFromFen(startFEN)
-		/*
-			for _, moveStr := range test.moves {
-				err := board.MoveLongAlgebraic(moveStr)
-				if err != nil {
-					t.Errorf(err.Error())
-				}
+		for _, moveStr := range test.moves {
+			err := board.MoveLongAlgebraic(moveStr)
+			if err != nil {
+				t.Errorf(err.Error())
 			}
-		*/
+		}
 		n := board.GetNumberOfMoves(test.ply, false)
 		if n != test.expected {
 			t.Errorf("Moves(%v) with ply: %d expected %d, Actual %d", test.moves, test.ply, test.expected, n)
@@ -26,14 +24,12 @@ func TestNumMoves(t *testing.T) {
 func TestNumMovesFromFEN(t *testing.T) {
 	for _, test := range numMovesFromFENTests {
 		board := GetBoardFromFen(test.fen)
-		/*
-			for _, moveStr := range test.moves {
-					err := board.MoveLongAlgebraic(moveStr)
-					if err != nil {
-						t.Errorf(err.Error())
-					}
-				}
-		*/
+		for _, moveStr := range test.moves {
+			err := board.MoveLongAlgebraic(moveStr)
+			if err != nil {
+				t.Errorf(err.Error())
+			}
+		}
 		n := board.GetNumberOfMoves(test.ply, board.isBlacksTurn)
 		if n != test.expected {
 			t.Errorf("Fen(%s) + moves: %v with ply: %d expected %d, Actual %d", test.fen, test.moves, test.ply, test.expected, n)

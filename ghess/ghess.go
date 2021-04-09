@@ -412,6 +412,22 @@ func (board *Board) getRookMoveIfCastle(m *JSONMove) (JSONMove, bool) {
 	return rm, true
 }
 
+// check if the move is really legal based on the movement array
+func (board *Board) isLegal(move *Move) bool {
+	piece := board.pieces[move.pieceId]
+	return piece.movement[move.toY][move.toX] && piece.isBlack == board.isBlack
+}
+*/
+
+func (board *Board) MoveLongAlgebraic(moveStr string) error {
+	move, err := board.getMoveFromLongAlgebraic(moveStr)
+	if err != nil {
+		return err
+	}
+	board.Move(&move)
+	return nil
+}
+
 func (board *Board) getMoveFromLongAlgebraic(moveStr string) (Move, error) {
 	move := Move{}
 	if len(moveStr) != 5 {
@@ -421,36 +437,20 @@ func (board *Board) getMoveFromLongAlgebraic(moveStr string) (Move, error) {
 	fromY := 8 - int(moveStr[1]-'0')
 	toX := int(moveStr[3] - 'a')
 	toY := 8 - int(moveStr[4]-'0')
-	pieceId := board.position[fromY][fromX]
+	pieceId := board.pos2PieceId[fromY*8+fromX]
 	if pieceId == 0 {
 		return move, fmt.Errorf("there is no piece at that position")
 	}
-	if board.pieces[pieceId].isBlack != board.isBlack {
+	if board.pieces[pieceId].isBlack != board.isBlacksTurn {
 		return move, fmt.Errorf("the piece has the wrong color")
 	}
-	move = board.NewMove(pieceId, 0, toY, toX, false)
+	move = board.NewMove(pieceId, 0, toY*8+toX)
 	if board.isLegal(&move) {
 		// capture will be filled automatically
 		return move, nil
 	}
 	return move, fmt.Errorf("the move is not legal")
 }
-
-func (board *Board) MoveLongAlgebraic(moveStr string) error {
-	move, err := board.getMoveFromLongAlgebraic(moveStr)
-	if err != nil {
-		return err
-	}
-	board.move(&board.pieces[move.pieceId], move.toY, move.toX)
-	return nil
-}
-
-// check if the move is really legal based on the movement array
-func (board *Board) isLegal(move *Move) bool {
-	piece := board.pieces[move.pieceId]
-	return piece.movement[move.toY][move.toX] && piece.isBlack == board.isBlack
-}
-*/
 
 func Run() {
 	websocketConns = make(map[int]*websocket.Conn)
@@ -463,8 +463,8 @@ func Run() {
 
 	app.Static("/", "./../ghess/public")
 
-	board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-	// board := GetBoardFromFen("4k2r/5pp1/8/6Pp/8/8/6PP/4K2R w K h6 0 1")
+	// board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+	board := GetBoardFromFen("3R4/8/8/6K1/8/4k3/8/5Q2 w - - 0 1")
 	// board := GetBoardFromFen("8/5r2/8/8/2B5/8/4Q3/8 w - - 0 1")
 	// board := GetBoardFromFen("rnbqkbnr/pppp1ppp/8/4p3/8/5N2/PPPP1PPP/4K3 b KQkq - 0 1")
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPB1PPP/R3K2R w KQkq a3 0 0")

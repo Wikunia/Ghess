@@ -37,6 +37,16 @@ func getMovesTilEdge() [64][8]int {
 	return movesTilEdge
 }
 
+func (board *Board) oppositeHasVisionOn(piece *Piece, pos int) bool {
+	if piece.isBlack {
+		// check if white has vision on pos
+		return board.whitePieceMovB&(1<<pos) != 0
+	} else {
+		// check if black has vision on pos
+		return board.blackPieceMovB&(1<<pos) != 0
+	}
+}
+
 // hasBlackPieceOn returns whether there is a black piece on pos
 func (board *Board) hasBlackPieceOn(pos int) bool {
 	var posB uint64 = 1 << pos
@@ -85,32 +95,58 @@ func (board *Board) combineMovementsOf(pieceIds [16]int) uint64 {
 
 // setMovement updates the movement of all pieces
 func (board *Board) setMovement() {
-	for pieceId := range board.pieces {
+	// set movement for the color that just moved before setting movement for pieces that can move next
+	// this helps with checking the movement of pieces due to check
+	lastColor := !board.isBlacksTurn
+	pieceIds := make([]int, 32)
+	// last was white
+	if !lastColor {
+		copy(pieceIds[:16], board.whiteIds[:])
+		copy(pieceIds[16:], board.blackIds[:])
+	} else {
+		copy(pieceIds[:16], board.blackIds[:])
+		copy(pieceIds[16:], board.whiteIds[:])
+	}
+
+	// for the color that last moved we allow them to capture their own pieces
+	// this helps as a defense strategy such that the king can't capture a piece in the next move if it's protected
+	canCaptureOwn := false
+
+	for _, pieceId := range pieceIds {
 		board.pieces[pieceId].numMoves = 0
+		// reset current movement
+		board.pieces[pieceId].movementB = 0
 		// piece is not on board
 		if board.pieces[pieceId].posB == 0 {
 			continue
 		}
-		// reset current movement
-		board.pieces[pieceId].movementB = 0
+		canCaptureOwn = board.pieces[pieceId].isBlack == lastColor
 		switch board.pieces[pieceId].pieceType {
 		case BISHOP, ROOK, QUEEN:
-			board.setSlidingpieceMovement(&board.pieces[pieceId])
+			board.setSlidingpieceMovement(&board.pieces[pieceId], canCaptureOwn)
 		case KNIGHT:
-			board.setKnightMovement(&board.pieces[pieceId])
+			board.setKnightMovement(&board.pieces[pieceId], canCaptureOwn)
 		case PAWN:
-			board.setPawnMovement(&board.pieces[pieceId])
+			board.setPawnMovement(&board.pieces[pieceId], canCaptureOwn)
 		case KING:
-			board.setKingMovement(&board.pieces[pieceId])
+			board.setKingMovement(&board.pieces[pieceId], canCaptureOwn)
+		}
+		if !lastColor {
+			board.whitePieceMovB = board.combineMovementsOf(board.whiteIds)
+		} else {
+			board.blackPieceMovB = board.combineMovementsOf(board.blackIds)
 		}
 	}
-
-	board.whitePieceMovB = board.combineMovementsOf(board.whiteIds)
-	board.blackPieceMovB = board.combineMovementsOf(board.blackIds)
+	// update the other color
+	if !lastColor {
+		board.blackPieceMovB = board.combineMovementsOf(board.blackIds)
+	} else {
+		board.whitePieceMovB = board.combineMovementsOf(board.whiteIds)
+	}
 }
 
 // setSlidingpieceMovement sets the possible movements for a queen, rook or bishop (does not check if it's a right piece)
-func (board *Board) setSlidingpieceMovement(piece *Piece) {
+func (board *Board) setSlidingpieceMovement(piece *Piece, canCaptureOwn bool) {
 	directions := [8]int{NORTH, SOUTH, WEST, EAST, NORTH_EAST, NORTH_WEST, SOUTH_EAST, SOUTH_WEST}
 	startDir := 0
 	endDir := 8
@@ -127,9 +163,12 @@ func (board *Board) setSlidingpieceMovement(piece *Piece) {
 			step := stepFactor * dir
 			pos := piece.pos + step
 			if (piece.isBlack && board.hasBlackPieceOn(pos)) || (!piece.isBlack && board.hasWhitePieceOn(pos)) {
+				if canCaptureOwn {
+					board.setPieceCanMoveTo(piece, pos)
+				}
 				break
 			}
-			board.setMovementIfNotCheck(piece, pos)
+			board.setPieceCanMoveTo(piece, pos)
 			// capture
 			if (!piece.isBlack && board.hasBlackPieceOn(pos)) || (piece.isBlack && board.hasWhitePieceOn(pos)) {
 				break
@@ -139,7 +178,7 @@ func (board *Board) setSlidingpieceMovement(piece *Piece) {
 }
 
 // setKnightMovement sets the possible movements for a knight
-func (board *Board) setKnightMovement(piece *Piece) {
+func (board *Board) setKnightMovement(piece *Piece, canCaptureOwn bool) {
 	dirSouth := [8]int{2, 2, 1, 1, -1, -1, -2, -2}
 	dirEast := [8]int{-1, 1, 2, -2, -2, 2, -1, 1}
 
@@ -149,27 +188,35 @@ func (board *Board) setKnightMovement(piece *Piece) {
 		pos := piece.pos + dirS*SOUTH + dirE*EAST
 
 		if dirS > 0 && dirE > 0 { // jump south east
-			if board.movesTilEdge[piece.pos][SOUTH_ID] >= dirS && board.movesTilEdge[piece.pos][EAST_ID] >= dirE && !board.sameColoredPieceOn(piece, pos) {
-				board.setMovementIfNotCheck(piece, pos)
+			if board.movesTilEdge[piece.pos][SOUTH_ID] >= dirS && board.movesTilEdge[piece.pos][EAST_ID] >= dirE {
+				if !board.sameColoredPieceOn(piece, pos) || canCaptureOwn {
+					board.setPieceCanMoveTo(piece, pos)
+				}
 			}
 		} else if dirS > 0 && dirE < 0 { // jump south west
-			if board.movesTilEdge[piece.pos][SOUTH_ID] >= dirS && board.movesTilEdge[piece.pos][WEST_ID] >= -dirE && !board.sameColoredPieceOn(piece, pos) {
-				board.setMovementIfNotCheck(piece, pos)
+			if board.movesTilEdge[piece.pos][SOUTH_ID] >= dirS && board.movesTilEdge[piece.pos][WEST_ID] >= -dirE {
+				if !board.sameColoredPieceOn(piece, pos) || canCaptureOwn {
+					board.setPieceCanMoveTo(piece, pos)
+				}
 			}
 		} else if dirS < 0 && dirE > 0 { // jump north east
-			if board.movesTilEdge[piece.pos][NORTH_ID] >= -dirS && board.movesTilEdge[piece.pos][EAST_ID] >= dirE && !board.sameColoredPieceOn(piece, pos) {
-				board.setMovementIfNotCheck(piece, pos)
+			if board.movesTilEdge[piece.pos][NORTH_ID] >= -dirS && board.movesTilEdge[piece.pos][EAST_ID] >= dirE {
+				if !board.sameColoredPieceOn(piece, pos) || canCaptureOwn {
+					board.setPieceCanMoveTo(piece, pos)
+				}
 			}
 		} else if dirS < 0 && dirE < 0 { // jump north west
-			if board.movesTilEdge[piece.pos][NORTH_ID] >= -dirS && board.movesTilEdge[piece.pos][WEST_ID] >= -dirE && !board.sameColoredPieceOn(piece, pos) {
-				board.setMovementIfNotCheck(piece, pos)
+			if board.movesTilEdge[piece.pos][NORTH_ID] >= -dirS && board.movesTilEdge[piece.pos][WEST_ID] >= -dirE {
+				if !board.sameColoredPieceOn(piece, pos) || canCaptureOwn {
+					board.setPieceCanMoveTo(piece, pos)
+				}
 			}
 		}
 	}
 }
 
 // setPawnMovement sets the possible movements for a pawn
-func (board *Board) setPawnMovement(piece *Piece) {
+func (board *Board) setPawnMovement(piece *Piece, canCaptureOwn bool) {
 	forwardID := NORTH_ID
 	forward := NORTH
 	startRank := 6
@@ -182,42 +229,46 @@ func (board *Board) setPawnMovement(piece *Piece) {
 
 	// one move forward
 	if board.movesTilEdge[piece.pos][forwardID] >= 1 && board.pos2PieceId[piece.pos+forward] == 0 {
-		board.setMovementIfNotCheck(piece, (piece.pos + forward))
+		board.setPieceCanMoveTo(piece, (piece.pos + forward))
 	}
 	// two steps forward
 	if rank == startRank && board.pos2PieceId[piece.pos+2*forward] == 0 && board.pos2PieceId[piece.pos+forward] == 0 {
-		board.setMovementIfNotCheck(piece, (piece.pos + 2*forward))
+		board.setPieceCanMoveTo(piece, (piece.pos + 2*forward))
 	}
 
 	// normal capture forward east
 	if board.oppositeColoredPieceOn(piece, piece.pos+forward+EAST) && board.movesTilEdge[piece.pos][EAST_ID] >= 1 {
-		board.setMovementIfNotCheck(piece, (piece.pos + forward + EAST))
+		if board.oppositeColoredPieceOn(piece, piece.pos+forward+EAST) || (canCaptureOwn && board.sameColoredPieceOn(piece, piece.pos+forward+EAST)) {
+			board.setPieceCanMoveTo(piece, piece.pos+forward+EAST)
+		}
 	}
 	// normal capture forward west
 	if board.oppositeColoredPieceOn(piece, piece.pos+forward+WEST) && board.movesTilEdge[piece.pos][WEST_ID] >= 1 {
-		board.setMovementIfNotCheck(piece, (piece.pos + forward + WEST))
+		if board.oppositeColoredPieceOn(piece, piece.pos+forward+WEST) || (canCaptureOwn && board.sameColoredPieceOn(piece, piece.pos+forward+WEST)) {
+			board.setPieceCanMoveTo(piece, piece.pos+forward+WEST)
+		}
 	}
 	// en passant capture
 	if board.en_passant_pos == -1 {
 		return
 	}
 	if piece.pos+forward+EAST == board.en_passant_pos {
-		board.setMovementIfNotCheck(piece, (piece.pos + forward + EAST))
+		board.setPieceCanMoveTo(piece, (piece.pos + forward + EAST))
 	} else if piece.pos+forward+WEST == board.en_passant_pos {
-		board.setMovementIfNotCheck(piece, (piece.pos + forward + WEST))
+		board.setPieceCanMoveTo(piece, (piece.pos + forward + WEST))
 	}
 }
 
 // setKingMovement sets the possible movements for a king
-func (board *Board) setKingMovement(piece *Piece) {
+func (board *Board) setKingMovement(piece *Piece, canCaptureOwn bool) {
 	directions := [8]int{NORTH, SOUTH, WEST, EAST, NORTH_EAST, NORTH_WEST, SOUTH_EAST, SOUTH_WEST}
 
 	// normal movement
 	for dirId := 0; dirId < 8; dirId++ {
 		if board.movesTilEdge[piece.pos][dirId] >= 1 {
 			pos := piece.pos + directions[dirId]
-			if !board.sameColoredPieceOn(piece, pos) {
-				board.setMovementIfNotCheck(piece, (pos))
+			if (canCaptureOwn || !board.sameColoredPieceOn(piece, pos)) && !board.oppositeHasVisionOn(piece, pos) {
+				board.setPieceCanMoveTo(piece, (pos))
 			}
 		}
 	}
@@ -227,13 +278,13 @@ func (board *Board) setKingMovement(piece *Piece) {
 		if board.black_castle_king {
 			// check if positions are free
 			if board.pos2PieceId[piece.pos+EAST] == 0 && board.pos2PieceId[piece.pos+2*EAST] == 0 {
-				board.setMovementIfNotCheck(piece, (piece.pos + 2*EAST))
+				board.setPieceCanMoveTo(piece, (piece.pos + 2*EAST))
 			}
 		}
 		if board.black_castle_queen {
 			// check if positions are free
 			if board.pos2PieceId[piece.pos+WEST] == 0 && board.pos2PieceId[piece.pos+2*WEST] == 0 && board.pos2PieceId[piece.pos+3*WEST] == 0 {
-				board.setMovementIfNotCheck(piece, (piece.pos + 3*WEST))
+				board.setPieceCanMoveTo(piece, (piece.pos + 3*WEST))
 			}
 		}
 	} else {
@@ -242,13 +293,13 @@ func (board *Board) setKingMovement(piece *Piece) {
 		if board.white_castle_king {
 			// check if positions are free
 			if board.pos2PieceId[piece.pos+EAST] == 0 && board.pos2PieceId[piece.pos+2*EAST] == 0 {
-				board.setMovementIfNotCheck(piece, (piece.pos + 2*EAST))
+				board.setPieceCanMoveTo(piece, (piece.pos + 2*EAST))
 			}
 		}
 		if board.white_castle_queen {
 			// check if positions are free
 			if board.pos2PieceId[piece.pos+WEST] == 0 && board.pos2PieceId[piece.pos+2*WEST] == 0 && board.pos2PieceId[piece.pos+3*WEST] == 0 {
-				board.setMovementIfNotCheck(piece, (piece.pos + 3*WEST))
+				board.setPieceCanMoveTo(piece, (piece.pos + 3*WEST))
 			}
 		}
 	}
@@ -325,9 +376,8 @@ func (board *Board) Move(m *Move) Move {
 
 	board.updateCastleRights(m)
 
-	board.setMovement()
-
 	board.isBlacksTurn = !board.isBlacksTurn
+	board.setMovement()
 	return rookMove
 }
 
@@ -388,7 +438,7 @@ func (board *Board) isLegal(m *Move) bool {
 	return false
 }
 
-func (board *Board) setMovementIfNotCheck(piece *Piece, pos int) {
+func (board *Board) setPieceCanMoveTo(piece *Piece, pos int) {
 	piece.movementB |= 1 << pos
 	piece.moves[piece.numMoves] = pos
 	piece.numMoves++
