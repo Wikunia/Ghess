@@ -14,7 +14,7 @@ func TestNumMoves(t *testing.T) {
 				t.Errorf(err.Error())
 			}
 		}
-		n := board.GetNumberOfMoves(test.ply, false)
+		n := board.GetNumberOfMoves(test.ply, board.isBlacksTurn)
 		if n != test.expected {
 			t.Errorf("Moves(%v) with ply: %d expected %d, Actual %d", test.moves, test.ply, test.expected, n)
 		}

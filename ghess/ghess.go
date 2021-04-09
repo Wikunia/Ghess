@@ -61,8 +61,10 @@ type Board struct {
 	nextMove           int
 	whiteKingId        int
 	blackKingId        int
-	checkForChecks     bool // set to false if one wants to get movements that can capture the king even though the move itself would lead to check
 	movesTilEdge       [64][8]int
+	check              bool
+	doubleCheck        bool
+	blockCheckSquaresB uint64
 }
 
 type BoardPrimitives struct {
@@ -108,8 +110,10 @@ func NewBoard(pieces [33]Piece, whiteIds [16]int, blackIds [16]int, isBlack bool
 		nextMove:           nextMove,
 		whiteKingId:        whiteKingId,
 		blackKingId:        blackKingId,
-		checkForChecks:     true,
 		movesTilEdge:       getMovesTilEdge(),
+		check:              false,
+		doubleCheck:        false,
+		blockCheckSquaresB: 0,
 	}
 
 	whitePiecePosB := board.combinePositionsOf(whiteIds)
@@ -463,8 +467,8 @@ func Run() {
 
 	app.Static("/", "./../ghess/public")
 
-	// board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-	board := GetBoardFromFen("3R4/8/8/6K1/8/4k3/8/5Q2 w - - 0 1")
+	board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+	// board := GetBoardFromFen("3R4/8/8/6K1/8/4k3/8/5Q2 w - - 0 1")
 	// board := GetBoardFromFen("8/5r2/8/8/2B5/8/4Q3/8 w - - 0 1")
 	// board := GetBoardFromFen("rnbqkbnr/pppp1ppp/8/4p3/8/5N2/PPPP1PPP/4K3 b KQkq - 0 1")
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPB1PPP/R3K2R w KQkq a3 0 0")
