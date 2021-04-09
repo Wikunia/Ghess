@@ -1,7 +1,5 @@
 package ghess
 
-import "fmt"
-
 func (board *Board) GetNumberOfMoves(ply int, isBlacksTurn bool) int {
 	n := 0
 	var pieceIds [16]int
@@ -20,7 +18,6 @@ func (board *Board) GetNumberOfMoves(ply int, isBlacksTurn bool) int {
 			}
 			boardPrimitives := board.getBoardPrimitives()
 			move := board.NewMove(pieceId, 0, moves[mId])
-			fmt.Println("Move: ", move)
 			board.Move(&move)
 			n += board.GetNumberOfMoves(ply-1, !isBlacksTurn)
 			board.reverseMove(&move, &boardPrimitives)

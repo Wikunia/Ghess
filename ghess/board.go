@@ -278,13 +278,18 @@ func (board *Board) setKingMovement(piece *Piece, canCaptureOwn bool) {
 		if board.black_castle_king {
 			// check if positions are free
 			if board.pos2PieceId[piece.pos+EAST] == 0 && board.pos2PieceId[piece.pos+2*EAST] == 0 {
-				board.setPieceCanMoveTo(piece, (piece.pos + 2*EAST))
+				// check that we don't castle through check
+				if !board.oppositeHasVisionOn(piece, piece.pos+EAST) && !board.oppositeHasVisionOn(piece, piece.pos+2*EAST) {
+					board.setPieceCanMoveTo(piece, (piece.pos + 2*EAST))
+				}
 			}
 		}
 		if board.black_castle_queen {
 			// check if positions are free
 			if board.pos2PieceId[piece.pos+WEST] == 0 && board.pos2PieceId[piece.pos+2*WEST] == 0 && board.pos2PieceId[piece.pos+3*WEST] == 0 {
-				board.setPieceCanMoveTo(piece, (piece.pos + 3*WEST))
+				if !board.oppositeHasVisionOn(piece, piece.pos+WEST) && !board.oppositeHasVisionOn(piece, piece.pos+2*WEST) {
+					board.setPieceCanMoveTo(piece, (piece.pos + 3*WEST))
+				}
 			}
 		}
 	} else {
@@ -293,13 +298,17 @@ func (board *Board) setKingMovement(piece *Piece, canCaptureOwn bool) {
 		if board.white_castle_king {
 			// check if positions are free
 			if board.pos2PieceId[piece.pos+EAST] == 0 && board.pos2PieceId[piece.pos+2*EAST] == 0 {
-				board.setPieceCanMoveTo(piece, (piece.pos + 2*EAST))
+				if !board.oppositeHasVisionOn(piece, piece.pos+EAST) && !board.oppositeHasVisionOn(piece, piece.pos+2*EAST) {
+					board.setPieceCanMoveTo(piece, (piece.pos + 2*EAST))
+				}
 			}
 		}
 		if board.white_castle_queen {
 			// check if positions are free
 			if board.pos2PieceId[piece.pos+WEST] == 0 && board.pos2PieceId[piece.pos+2*WEST] == 0 && board.pos2PieceId[piece.pos+3*WEST] == 0 {
-				board.setPieceCanMoveTo(piece, (piece.pos + 3*WEST))
+				if !board.oppositeHasVisionOn(piece, piece.pos+WEST) && !board.oppositeHasVisionOn(piece, piece.pos+2*WEST) {
+					board.setPieceCanMoveTo(piece, (piece.pos + 3*WEST))
+				}
 			}
 		}
 	}
@@ -383,11 +392,6 @@ func (board *Board) Move(m *Move) Move {
 
 func (board *Board) reverseMove(m *Move, boardPrimitives *BoardPrimitives) {
 	move := board.NewMove(m.pieceId, 0, m.from)
-	fmt.Println("m.PieceId: ", m.pieceId)
-	fmt.Println("m.captureId: ", m.captureId)
-	fmt.Println("boardPrimitives.en_passant_pos: ", boardPrimitives.en_passant_pos)
-	fmt.Println("m.to ", m.to)
-	fmt.Println("====================================")
 	if m.captureId != 0 {
 		// en passant capture
 		if boardPrimitives.en_passant_pos == m.to && board.pieces[m.pieceId].pieceType == PAWN {
