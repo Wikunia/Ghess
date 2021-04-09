@@ -9,7 +9,7 @@ type numMoves struct {
 var numMovesTests = []numMoves{
 	{[]string{}, 1, 20},
 	{[]string{}, 2, 400},
-	{[]string{}, 3, 8902},
+	// {[]string{}, 3, 8902},
 	// {[]string{}, 4, 197281},
 	// {[]string{}, 5, 4865609},
 
