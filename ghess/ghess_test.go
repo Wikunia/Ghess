@@ -104,6 +104,6 @@ func BenchmarkNumMove(b *testing.B) {
 	board := GetBoardFromFen(startFEN)
 
 	for i := 0; i < b.N; i++ {
-		board.GetNumberOfMoves(4)
+		board.GetNumberOfMoves(5)
 	}
 }

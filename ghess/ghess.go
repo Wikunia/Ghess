@@ -476,7 +476,7 @@ func Run() {
 
 	// board.MoveLongAlgebraic("d2-d3")
 	// board.MoveLongAlgebraic("g8-h6")
-	// board.GetNumberOfMoves(2)
+	board.GetNumberOfMoves(1)
 	// fmt.Println("white castle king: ", board.white_castle_king)
 	// fmt.Println("isBlacksTurn: ", board.isBlacksTurn)
 

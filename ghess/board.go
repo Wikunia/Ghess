@@ -180,12 +180,15 @@ func (board *Board) setSlidingpieceMovement(piece *Piece, wasLastColor bool) {
 		for stepFactor := 1; stepFactor <= board.movesTilEdge[piece.pos][dirId]; stepFactor++ {
 			step := stepFactor * dir
 			pos := piece.pos + step
+			// can't move through our own pieces
 			if (piece.isBlack && board.hasBlackPieceOn(pos)) || (!piece.isBlack && board.hasWhitePieceOn(pos)) {
+				// we can defend our own pieces though if we just moved -> this makes it impossible that the king can capture a defended piece
 				if wasLastColor {
 					board.setPieceCanMoveTo(piece, pos)
 				}
 				break
 			}
+
 			board.setPieceCanMoveTo(piece, pos)
 			// capture
 			if (!piece.isBlack && board.hasBlackPieceOn(pos)) || (piece.isBlack && board.hasWhitePieceOn(pos)) {
@@ -203,6 +206,10 @@ func (board *Board) setSlidingpieceMovement(piece *Piece, wasLastColor bool) {
 							stepCheck := stepFactorCheck * dir
 							posCheck := piece.pos + stepCheck
 							board.blockCheckSquaresB |= 1 << posCheck
+						}
+						// add the one square after the king to possible moves of the piece (to avoid letting the king run away in the same direction backwards)
+						if stepFactor < board.movesTilEdge[piece.pos][dirId] {
+							board.setPieceCanMoveTo(piece, pos+dir)
 						}
 					}
 					// set pinned pieces if we can catch the king afterwards
@@ -356,7 +363,7 @@ func (board *Board) setKingMovement(piece *Piece, wasLastColor bool) {
 		if board.movesTilEdge[piece.pos][dirId] >= 1 {
 			pos := piece.pos + directions[dirId]
 			if (wasLastColor || !board.sameColoredPieceOn(piece, pos)) && !board.oppositeHasVisionOn(piece, pos) {
-				board.setPieceCanMoveTo(piece, (pos))
+				board.setPieceCanMoveTo(piece, pos)
 			}
 		}
 	}
