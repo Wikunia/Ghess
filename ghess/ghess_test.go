@@ -14,7 +14,7 @@ func TestNumMoves(t *testing.T) {
 				t.Errorf(err.Error())
 			}
 		}
-		n := board.GetNumberOfMoves(test.ply, board.isBlacksTurn)
+		n := board.GetNumberOfMoves(test.ply)
 		if n != test.expected {
 			t.Errorf("Moves(%v) with ply: %d expected %d, Actual %d", test.moves, test.ply, test.expected, n)
 		}
@@ -30,7 +30,7 @@ func TestNumMovesFromFEN(t *testing.T) {
 				t.Errorf(err.Error())
 			}
 		}
-		n := board.GetNumberOfMoves(test.ply, board.isBlacksTurn)
+		n := board.GetNumberOfMoves(test.ply)
 		if n != test.expected {
 			t.Errorf("Fen(%s) + moves: %v with ply: %d expected %d, Actual %d", test.fen, test.moves, test.ply, test.expected, n)
 		}
@@ -100,10 +100,10 @@ func BenchmarkNumMoves(b *testing.B) {
 */
 
 func BenchmarkNumMove(b *testing.B) {
-	startFEN := "8/5r2/8/8/2B5/8/4Q3/8 w - - 0 1"
+	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 	board := GetBoardFromFen(startFEN)
 
 	for i := 0; i < b.N; i++ {
-		board.GetNumberOfMoves(2, false)
+		board.GetNumberOfMoves(4)
 	}
 }

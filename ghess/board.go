@@ -1,6 +1,8 @@
 package ghess
 
-import "fmt"
+import (
+	"math"
+)
 
 const NORTH = -8
 const SOUTH = 8
@@ -116,6 +118,10 @@ func (board *Board) setMovement() {
 	board.doubleCheck = false
 	board.blockCheckSquaresB = 0
 
+	for pieceId := range board.pieces {
+		board.pieces[pieceId].pinnedMoveB = math.MaxUint64
+	}
+
 	for _, pieceId := range pieceIds {
 		board.pieces[pieceId].numMoves = 0
 		// reset current movement
@@ -183,20 +189,48 @@ func (board *Board) setSlidingpieceMovement(piece *Piece, wasLastColor bool) {
 			board.setPieceCanMoveTo(piece, pos)
 			// capture
 			if (!piece.isBlack && board.hasBlackPieceOn(pos)) || (piece.isBlack && board.hasWhitePieceOn(pos)) {
-				// check if we check the king
-				if pos == oppositeKingPos {
-					if !board.check {
-						board.check = true
-					} else {
-						board.doubleCheck = true
+				// only do some more checks if we just played the last move
+				if wasLastColor {
+					// check if we check the king
+					if pos == oppositeKingPos {
+						if !board.check {
+							board.check = true
+						} else {
+							board.doubleCheck = true
+						}
+						// add last moves and piece itself to blockCheckSquares
+						for stepFactorCheck := 0; stepFactorCheck < stepFactor; stepFactorCheck++ {
+							stepCheck := stepFactorCheck * dir
+							posCheck := piece.pos + stepCheck
+							board.blockCheckSquaresB |= 1 << posCheck
+						}
 					}
-					// add last moves and piece itself to blockCheckSquares
-					for stepFactorCheck := 0; stepFactorCheck < stepFactor; stepFactorCheck++ {
-						step := stepFactorCheck * dir
-						pos := piece.pos + step
-						board.blockCheckSquaresB |= 1 << pos
+					// set pinned pieces if we can catch the king afterwards
+					for stepFactorKingHunt := stepFactor + 1; stepFactorKingHunt <= board.movesTilEdge[piece.pos][dirId]; stepFactorKingHunt++ {
+						stepKingHunt := stepFactorKingHunt * dir
+						posKingHunt := piece.pos + stepKingHunt
+						// if there is another piece in between => no pin
+						if board.pos2PieceId[posKingHunt] != 0 && posKingHunt != oppositeKingPos {
+							break
+						}
+
+						if posKingHunt == oppositeKingPos {
+							// piece at pos is pinned
+							pinnedPieceId := board.pos2PieceId[pos]
+							// reset pinnedMove to be able to set 1s to the positions it can actually move to
+							board.pieces[pinnedPieceId].pinnedMoveB = 0
+							// set the pinnedMove bitset starting from the piece through the pinned piece up to the king (not including but doesn't matter)
+							for stepFactorPin := 0; stepFactorPin < stepFactorKingHunt; stepFactorPin++ {
+								stepPin := stepFactorPin * dir
+								posPin := piece.pos + stepPin
+								board.pieces[pinnedPieceId].pinnedMoveB |= 1 << posPin
+							}
+							break
+						}
 					}
+
 				}
+
 				break
 			}
 		}
@@ -286,15 +320,15 @@ func (board *Board) setPawnMovement(piece *Piece, wasLastColor bool) {
 	}
 
 	// normal capture forward east
-	if board.oppositeColoredPieceOn(piece, piece.pos+forward+EAST) && board.movesTilEdge[piece.pos][EAST_ID] >= 1 {
-		if board.oppositeColoredPieceOn(piece, piece.pos+forward+EAST) || (wasLastColor && board.sameColoredPieceOn(piece, piece.pos+forward+EAST)) {
+	if board.movesTilEdge[piece.pos][EAST_ID] >= 1 {
+		if board.oppositeColoredPieceOn(piece, piece.pos+forward+EAST) || wasLastColor {
 			board.setPieceCanMoveTo(piece, piece.pos+forward+EAST)
 			board.setBlockingSquaresIfKingAt(piece.pos, piece.pos+forward+EAST)
 		}
 	}
 	// normal capture forward west
-	if board.oppositeColoredPieceOn(piece, piece.pos+forward+WEST) && board.movesTilEdge[piece.pos][WEST_ID] >= 1 {
-		if board.oppositeColoredPieceOn(piece, piece.pos+forward+WEST) || (wasLastColor && board.sameColoredPieceOn(piece, piece.pos+forward+WEST)) {
+	if board.movesTilEdge[piece.pos][WEST_ID] >= 1 {
+		if board.oppositeColoredPieceOn(piece, piece.pos+forward+WEST) || wasLastColor {
 			board.setPieceCanMoveTo(piece, piece.pos+forward+WEST)
 			board.setBlockingSquaresIfKingAt(piece.pos, piece.pos+forward+WEST)
 		}
@@ -442,28 +476,7 @@ func (board *Board) Move(m *Move) Move {
 }
 
 func (board *Board) reverseMove(m *Move, boardPrimitives *BoardPrimitives) {
-	move := board.NewMove(m.pieceId, 0, m.from)
-	if m.captureId != 0 {
-		// en passant capture
-		if boardPrimitives.en_passant_pos == m.to && board.pieces[m.pieceId].pieceType == PAWN {
-			posOfCapturedPawn := 0
-			if board.pieces[m.pieceId].isBlack {
-				// white pawn was captured
-				posOfCapturedPawn = boardPrimitives.en_passant_pos - 8
-			} else {
-				// black pawn was captured
-				posOfCapturedPawn = boardPrimitives.en_passant_pos + 8
-			}
-			fmt.Println("pos of captured pawn: ", posOfCapturedPawn)
-			board.pieces[m.captureId].pos = posOfCapturedPawn
-			board.pieces[m.captureId].posB = 1 << posOfCapturedPawn
-			board.pos2PieceId[posOfCapturedPawn] = m.captureId
-		} else {
-			board.pieces[m.captureId].pos = m.to
-			board.pieces[m.captureId].posB = 1 << m.to
-			board.pos2PieceId[m.to] = m.captureId
-		}
-	}
+	revMmove := board.NewMove(m.pieceId, 0, m.from)
 	if board.pieces[m.pieceId].pieceType == KING {
 		_, y := xy(m.from)
 		// king side
@@ -478,7 +491,27 @@ func (board *Board) reverseMove(m *Move, boardPrimitives *BoardPrimitives) {
 		}
 	}
 
-	board.TempMove(&move)
+	board.TempMove(&revMmove)
+	if m.captureId != 0 {
+		// en passant capture
+		if boardPrimitives.en_passant_pos == m.to && board.pieces[m.pieceId].pieceType == PAWN {
+			posOfCapturedPawn := 0
+			if board.pieces[m.pieceId].isBlack {
+				// white pawn was captured
+				posOfCapturedPawn = boardPrimitives.en_passant_pos - 8
+			} else {
+				// black pawn was captured
+				posOfCapturedPawn = boardPrimitives.en_passant_pos + 8
+			}
+			board.pieces[m.captureId].pos = posOfCapturedPawn
+			board.pieces[m.captureId].posB = 1 << posOfCapturedPawn
+			board.pos2PieceId[posOfCapturedPawn] = m.captureId
+		} else {
+			board.pieces[m.captureId].pos = m.to
+			board.pieces[m.captureId].posB = 1 << m.to
+			board.pos2PieceId[m.to] = m.captureId
+		}
+	}
 
 	// resets castle and en passant rights which is important for setMovement
 	board.setBoardPrimitives(boardPrimitives)
@@ -505,9 +538,12 @@ func (board *Board) setPieceCanMoveTo(piece *Piece, pos int) {
 			return
 		}
 	}
-	piece.movementB |= 1 << pos
-	piece.moves[piece.numMoves] = pos
-	piece.numMoves++
+	// check whether the piece can move there or whether it's pinned to some line
+	if piece.pinnedMoveB&(1<<pos) != 0 {
+		piece.movementB |= 1 << pos
+		piece.moves[piece.numMoves] = pos
+		piece.numMoves++
+	}
 }
 
 func (board *Board) updateCastleRights(m *Move) {

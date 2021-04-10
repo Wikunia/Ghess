@@ -3,6 +3,7 @@ package ghess
 import (
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -26,20 +27,21 @@ const BISHOP = 'b'
 const PAWN = 'p'
 
 type Piece struct {
-	id        int
-	pos       int    // position from 0 to 63
-	posB      uint64 // binary position from 0...1 to 1...0
-	pieceType rune   // lower case 'k',...,'p' see KING, ... , PAWN constants
-	isBlack   bool
-	movementB uint64 // possible movement of this piece encoded similarly to posB
-	moves     [28]int
-	numMoves  int
+	id          int
+	pos         int    // position from 0 to 63
+	posB        uint64 // binary position from 0...1 to 1...0
+	pieceType   rune   // lower case 'k',...,'p' see KING, ... , PAWN constants
+	isBlack     bool
+	movementB   uint64 // possible movement of this piece encoded similarly to posB
+	moves       [28]int
+	numMoves    int
+	pinnedMoveB uint64 // is set to all 1 by default but set to 1 only in the direction of pinn if pinned (including capturing pinned piece)
 }
 
 func NewPiece(id int, pos int, pieceType rune, isBlack bool) Piece {
 	var moves [28]int
 	var posB uint64 = 1 << pos
-	return Piece{id: id, pos: pos, posB: posB, pieceType: pieceType, isBlack: isBlack, movementB: 0, moves: moves, numMoves: 0}
+	return Piece{id: id, pos: pos, posB: posB, pieceType: pieceType, isBlack: isBlack, movementB: 0, moves: moves, numMoves: 0, pinnedMoveB: math.MaxUint64}
 }
 
 type Board struct {
@@ -244,16 +246,6 @@ func (board *Board) getFen() string {
 	return fen
 }
 
-/*
-func (board *Board) moveToToLongAlgebraic(fromY, fromX, toY, toX int) string {
-	res := string(rune('a' + fromX))
-	res += strconv.Itoa(8 - fromY)
-	res += "-" + string(rune('a'+toX))
-	res += strconv.Itoa(8 - toY)
-	return res
-}
-*/
-
 func displayFen(fen string) string {
 	board := GetBoardFromFen(fen)
 	return board.display()
@@ -423,6 +415,14 @@ func (board *Board) isLegal(move *Move) bool {
 }
 */
 
+func getAlgebraicFromMove(m *Move) string {
+	fromX, fromY := xy(m.from)
+	toX, toY := xy(m.to)
+	moveStr := string(rune('a'+fromX)) + strconv.Itoa(8-fromY)
+	moveStr += string(rune('a'+toX)) + strconv.Itoa(8-toY)
+	return moveStr
+}
+
 func (board *Board) MoveLongAlgebraic(moveStr string) error {
 	move, err := board.getMoveFromLongAlgebraic(moveStr)
 	if err != nil {
@@ -468,13 +468,15 @@ func Run() {
 	app.Static("/", "./../ghess/public")
 
 	board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-	// board := GetBoardFromFen("3R4/8/8/6K1/8/4k3/8/5Q2 w - - 0 1")
+	// board := GetBoardFromFen("7k/7p/7n/8/8/8/8/2B1K3 w - - 0 1")
 	// board := GetBoardFromFen("8/5r2/8/8/2B5/8/4Q3/8 w - - 0 1")
 	// board := GetBoardFromFen("rnbqkbnr/pppp1ppp/8/4p3/8/5N2/PPPP1PPP/4K3 b KQkq - 0 1")
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPB1PPP/R3K2R w KQkq a3 0 0")
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/1n2pnp1/1b1PN3/Pp2P3/5Q1p/1PPB1PPP/R3K2R w KQkq - 0 0")
 
-	// board.GetNumberOfMoves(2, false)
+	// board.MoveLongAlgebraic("d2-d3")
+	// board.MoveLongAlgebraic("g8-h6")
+	// board.GetNumberOfMoves(2)
 	// fmt.Println("white castle king: ", board.white_castle_king)
 	// fmt.Println("isBlacksTurn: ", board.isBlacksTurn)
 

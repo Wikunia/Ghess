@@ -1,6 +1,6 @@
 package ghess
 
-func (board *Board) GetNumberOfMoves(ply int, isBlacksTurn bool) int {
+func (board *Board) getNumberOfMoves(startPly, ply int, isBlacksTurn bool) int {
 	n := 0
 	var pieceIds [16]int
 	if isBlacksTurn {
@@ -12,16 +12,27 @@ func (board *Board) GetNumberOfMoves(ply int, isBlacksTurn bool) int {
 		moves := board.pieces[pieceId].moves
 		numMoves := board.pieces[pieceId].numMoves
 		for mId := 0; mId < numMoves; mId++ {
+			move := board.NewMove(pieceId, 0, moves[mId])
+			/*
+				padding := (startPly - ply) * 2
+				for i := 0; i < padding; i++ {
+					fmt.Print(" ")
+				}
+				fmt.Println(getAlgebraicFromMove(&move))
+			*/
 			if ply == 1 {
 				n += 1
 				continue
 			}
 			boardPrimitives := board.getBoardPrimitives()
-			move := board.NewMove(pieceId, 0, moves[mId])
 			board.Move(&move)
-			n += board.GetNumberOfMoves(ply-1, !isBlacksTurn)
+			n += board.getNumberOfMoves(startPly, ply-1, !isBlacksTurn)
 			board.reverseMove(&move, &boardPrimitives)
 		}
 	}
 	return n
+}
+
+func (board *Board) GetNumberOfMoves(ply int) int {
+	return board.getNumberOfMoves(ply, ply, board.isBlacksTurn)
 }
