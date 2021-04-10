@@ -474,9 +474,20 @@ func Run() {
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPB1PPP/R3K2R w KQkq a3 0 0")
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/1n2pnp1/1b1PN3/Pp2P3/5Q1p/1PPB1PPP/R3K2R w KQkq - 0 0")
 
-	// board.MoveLongAlgebraic("d2-d3")
-	// board.MoveLongAlgebraic("g8-h6")
-	board.GetNumberOfMoves(1)
+	board.MoveLongAlgebraic("e2-e4")
+	board.MoveLongAlgebraic("b7-b6")
+	board.MoveLongAlgebraic("g1-f3")
+	board.MoveLongAlgebraic("c8-a6")
+	board.MoveLongAlgebraic("g2-g3")
+	board.MoveLongAlgebraic("d7-d5")
+	board.MoveLongAlgebraic("f1-g2")
+	board.MoveLongAlgebraic("d5-e4")
+	board.MoveLongAlgebraic("f3-d4")
+	board.MoveLongAlgebraic("e7-e5")
+	board.MoveLongAlgebraic("d2-d3")
+	board.MoveLongAlgebraic("f8-b4")
+
+	// board.GetNumberOfMoves(2)
 	// fmt.Println("white castle king: ", board.white_castle_king)
 	// fmt.Println("isBlacksTurn: ", board.isBlacksTurn)
 

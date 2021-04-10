@@ -368,6 +368,11 @@ func (board *Board) setKingMovement(piece *Piece, wasLastColor bool) {
 		}
 	}
 
+	// don't allow castle out of check
+	if board.check {
+		return
+	}
+
 	// castle
 	if piece.isBlack {
 		if board.black_castle_king {
@@ -521,6 +526,9 @@ func (board *Board) reverseMove(m *Move, boardPrimitives *BoardPrimitives) {
 			board.pieces[m.captureId].posB = 1 << m.to
 			board.pos2PieceId[m.to] = m.captureId
 		}
+		// need to update the combined positions
+		board.whitePiecePosB = board.combinePositionsOf(board.whiteIds)
+		board.blackPiecePosB = board.combinePositionsOf(board.blackIds)
 	}
 
 	// resets castle and en passant rights which is important for setMovement
