@@ -310,13 +310,16 @@ func (board *Board) setPawnMovement(piece *Piece, wasLastColor bool) {
 	}
 	_, rank := xy(piece.pos)
 
-	// one move forward
-	if board.movesTilEdge[piece.pos][forwardID] >= 1 && board.pos2PieceId[piece.pos+forward] == 0 {
-		board.setPieceCanMoveTo(piece, (piece.pos + forward))
-	}
-	// two steps forward
-	if rank == startRank && board.pos2PieceId[piece.pos+2*forward] == 0 && board.pos2PieceId[piece.pos+forward] == 0 {
-		board.setPieceCanMoveTo(piece, (piece.pos + 2*forward))
+	// for the previous color we are only interested in capture vision
+	if !wasLastColor {
+		// one move forward
+		if board.movesTilEdge[piece.pos][forwardID] >= 1 && board.pos2PieceId[piece.pos+forward] == 0 {
+			board.setPieceCanMoveTo(piece, (piece.pos + forward))
+		}
+		// two steps forward
+		if rank == startRank && board.pos2PieceId[piece.pos+2*forward] == 0 && board.pos2PieceId[piece.pos+forward] == 0 {
+			board.setPieceCanMoveTo(piece, (piece.pos + 2*forward))
+		}
 	}
 
 	// normal capture forward east
