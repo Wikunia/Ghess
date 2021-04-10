@@ -467,25 +467,12 @@ func Run() {
 
 	app.Static("/", "./../ghess/public")
 
-	board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-	// board := GetBoardFromFen("7k/7p/7n/8/8/8/8/2B1K3 w - - 0 1")
+	// board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+	board := GetBoardFromFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1") // Kiwipete
 	// board := GetBoardFromFen("8/5r2/8/8/2B5/8/4Q3/8 w - - 0 1")
 	// board := GetBoardFromFen("rnbqkbnr/pppp1ppp/8/4p3/8/5N2/PPPP1PPP/4K3 b KQkq - 0 1")
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPB1PPP/R3K2R w KQkq a3 0 0")
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/1n2pnp1/1b1PN3/Pp2P3/5Q1p/1PPB1PPP/R3K2R w KQkq - 0 0")
-
-	board.MoveLongAlgebraic("e2-e4")
-	board.MoveLongAlgebraic("b7-b6")
-	board.MoveLongAlgebraic("g1-f3")
-	board.MoveLongAlgebraic("c8-a6")
-	board.MoveLongAlgebraic("g2-g3")
-	board.MoveLongAlgebraic("d7-d5")
-	board.MoveLongAlgebraic("f1-g2")
-	board.MoveLongAlgebraic("d5-e4")
-	board.MoveLongAlgebraic("f3-d4")
-	board.MoveLongAlgebraic("e7-e5")
-	board.MoveLongAlgebraic("d2-d3")
-	board.MoveLongAlgebraic("f8-b4")
 
 	// board.GetNumberOfMoves(2)
 	// fmt.Println("white castle king: ", board.white_castle_king)

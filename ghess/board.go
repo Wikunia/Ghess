@@ -388,7 +388,7 @@ func (board *Board) setKingMovement(piece *Piece, wasLastColor bool) {
 			// check if positions are free
 			if board.pos2PieceId[piece.pos+WEST] == 0 && board.pos2PieceId[piece.pos+2*WEST] == 0 && board.pos2PieceId[piece.pos+3*WEST] == 0 {
 				if !board.oppositeHasVisionOn(piece, piece.pos+WEST) && !board.oppositeHasVisionOn(piece, piece.pos+2*WEST) {
-					board.setPieceCanMoveTo(piece, (piece.pos + 3*WEST))
+					board.setPieceCanMoveTo(piece, (piece.pos + 2*WEST))
 				}
 			}
 		}
@@ -407,7 +407,7 @@ func (board *Board) setKingMovement(piece *Piece, wasLastColor bool) {
 			// check if positions are free
 			if board.pos2PieceId[piece.pos+WEST] == 0 && board.pos2PieceId[piece.pos+2*WEST] == 0 && board.pos2PieceId[piece.pos+3*WEST] == 0 {
 				if !board.oppositeHasVisionOn(piece, piece.pos+WEST) && !board.oppositeHasVisionOn(piece, piece.pos+2*WEST) {
-					board.setPieceCanMoveTo(piece, (piece.pos + 3*WEST))
+					board.setPieceCanMoveTo(piece, (piece.pos + 2*WEST))
 				}
 			}
 		}
