@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	fiber "github.com/gofiber/fiber/v2"
@@ -14,17 +16,14 @@ import (
 	websocket "github.com/gofiber/websocket/v2"
 )
 
-type Position struct {
-	x int
-	y int
-}
-
 const KING = 'k'
 const QUEEN = 'q'
 const ROOK = 'r'
 const KNIGHT = 'n'
 const BISHOP = 'b'
 const PAWN = 'p'
+
+const ENGINE = "captureRandom"
 
 type Piece struct {
 	id          int
@@ -126,18 +125,12 @@ func NewBoard(pieces [33]Piece, whiteIds [16]int, blackIds [16]int, isBlack bool
 	return board
 }
 
-type JSONMove struct {
-	PieceId   int `json:"pieceId"`
-	CaptureId int `json:"captureId"`
-	ToY       int `json:"toY"`
-	ToX       int `json:"toX"`
-}
-
 type Move struct {
 	pieceId   int
 	captureId int
 	from      int
 	to        int
+	promote   int
 }
 
 type JSONRequest struct {
@@ -145,11 +138,17 @@ type JSONRequest struct {
 	PieceId     int    `json:"pieceId"`
 	CaptureId   int    `json:"captureId"`
 	To          int    `json:"to"`
+	Promote     int    `json:"promote"` // 0 -> no promotion, 1 -> queen, 2 -> rook, 3 -> bishop, 4 -> knight
 }
 
 type JSONSurrounding struct {
 	RequestType string     `json:"requestType"`
 	Surrounding [8][8]bool `json:"surrounding"`
+}
+
+type JSONEnd struct {
+	RequestType string `json:"requestType"`
+	Type        string `json:"type"`
 }
 
 var websocketConns map[int]*websocket.Conn
@@ -361,60 +360,6 @@ func GetBoardFromFen(fen string) Board {
 	return board
 }
 
-func engineMove() JSONMove {
-	return JSONMove{PieceId: 13, CaptureId: 0, ToY: 4, ToX: 5}
-}
-
-func (board *Board) getPieceisBlack(piece int) bool {
-	return board.pieces[piece].isBlack
-}
-
-/*
-func (board *Board) getRookMoveIfCastle(m *JSONMove) (JSONMove, bool) {
-	piece := board.pieces[m.PieceId]
-	rm := JSONMove{PieceId: 0, CaptureId: 0, ToX: 0, ToY: 0}
-	if piece.pieceType != KING {
-		return rm, false
-	}
-	isBlack := piece.isBlack
-	fromX := board.pieces[m.PieceId].position.x
-	toX := m.ToX
-	diffx := toX - fromX
-	if abs(diffx) != 2 {
-		return rm, false
-	}
-	// this can happen in temporary reverse moves
-	if fromX != 5 {
-		return rm, false
-	}
-
-	if !isBlack {
-		if diffx == 2 {
-			rook_id := board.position[7][7]
-			rm = JSONMove{PieceId: rook_id, CaptureId: 0, ToX: 6, ToY: 8}
-		} else {
-			rook_id := board.position[7][0]
-			rm = JSONMove{PieceId: rook_id, CaptureId: 0, ToX: 4, ToY: 8}
-		}
-	} else {
-		if diffx == 2 {
-			rook_id := board.position[0][7]
-			rm = JSONMove{PieceId: rook_id, CaptureId: 0, ToX: 6, ToY: 1}
-		} else {
-			rook_id := board.position[0][0]
-			rm = JSONMove{PieceId: rook_id, CaptureId: 0, ToX: 4, ToY: 1}
-		}
-	}
-	return rm, true
-}
-
-// check if the move is really legal based on the movement array
-func (board *Board) isLegal(move *Move) bool {
-	piece := board.pieces[move.pieceId]
-	return piece.movement[move.toY][move.toX] && piece.isBlack == board.isBlack
-}
-*/
-
 func getAlgebraicFromMove(m *Move) string {
 	fromX, fromY := xy(m.from)
 	toX, toY := xy(m.to)
@@ -448,7 +393,7 @@ func (board *Board) getMoveFromLongAlgebraic(moveStr string) (Move, error) {
 	if board.pieces[pieceId].isBlack != board.isBlacksTurn {
 		return move, fmt.Errorf("the piece has the wrong color")
 	}
-	move = board.NewMove(pieceId, 0, toY*8+toX)
+	move, _ = board.NewMove(pieceId, 0, toY*8+toX, 0)
 	if board.isLegal(&move) {
 		// capture will be filled automatically
 		return move, nil
@@ -467,9 +412,9 @@ func Run() {
 
 	app.Static("/", "./../ghess/public")
 
-	// board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+	board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1") // Kiwipete
-	board := GetBoardFromFen("8/2p5/3p4/KP5r/1R2Pp1k/8/6P1/8 b - e3 0 1")
+	// board := GetBoardFromFen("8/2p5/3p4/KP5r/1R2Pp1k/8/6p1/8 b - e3 0 1")
 	// board := GetBoardFromFen("rnbqkbnr/pppp1ppp/8/4p3/8/5N2/PPPP1PPP/4K3 b KQkq - 0 1")
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPB1PPP/R3K2R w KQkq a3 0 0")
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/1n2pnp1/1b1PN3/Pp2P3/5Q1p/1PPB1PPP/R3K2R w KQkq - 0 0")
@@ -513,6 +458,7 @@ func Run() {
 				break
 			}
 			isMove := false
+			needsPromotionType := false
 			move := Move{}
 			switch jsonObj.RequestType {
 			case "movement":
@@ -520,12 +466,17 @@ func Run() {
 				// c.WriteJSON(JSONSurrounding{RequestType: "surrounding", Surrounding: bits2array(board.whitePiecePosB)})
 			case "move", "capture":
 				isMove = true
-				move = board.NewMove(jsonObj.PieceId, jsonObj.CaptureId, jsonObj.To)
+				move, needsPromotionType = board.NewMove(jsonObj.PieceId, jsonObj.CaptureId, jsonObj.To, jsonObj.Promote)
+				if needsPromotionType {
+					c.WriteJSON(JSONRequest{RequestType: "promotion", PieceId: jsonObj.PieceId, CaptureId: jsonObj.CaptureId, To: jsonObj.To})
+					isMove = false
+				}
 			}
 
 			if isMove && board.isLegal(&move) {
 				rookMove := board.Move(&move)
-				err = c.WriteJSON(JSONRequest{RequestType: "move", PieceId: move.pieceId, CaptureId: move.captureId, To: move.to})
+
+				err = c.WriteJSON(JSONRequest{RequestType: "move", PieceId: move.pieceId, CaptureId: move.captureId, To: move.to, Promote: move.promote})
 				if err != nil {
 					log.Println("write:", err)
 					break
@@ -537,59 +488,49 @@ func Run() {
 						break
 					}
 				}
-			}
 
-			/*
-				if isMove && board.isLegal(&move) {
-					fmt.Println("move: ", move)
-					_, rookMove := board.move(&board.pieces[move.pieceId], move.toY, move.toX)
-					err = c.WriteJSON(JSONRequest{RequestType: "move", PieceId: move.pieceId, CaptureId: move.captureId, ToY: move.toY, ToX: move.toX})
-					if err != nil {
-						log.Println("write:", err)
-						break
-					}
-					fmt.Println("rookMove: ", rookMove)
-					if rookMove.pieceId != 0 {
-						err = c.WriteJSON(JSONRequest{RequestType: "move", PieceId: rookMove.pieceId, CaptureId: rookMove.captureId, ToY: rookMove.toY, ToX: rookMove.toX})
+				numMoves := board.GetNumberOfMoves(1)
+				if numMoves == 0 {
+					if board.check {
+						err = c.WriteJSON(JSONEnd{RequestType: "end", Type: "checkmate"})
 						if err != nil {
-							log.Println("rookMove write:", err)
+							log.Println("Counldn't set checkmate:", err)
+							break
+						}
+					} else {
+						err = c.WriteJSON(JSONEnd{RequestType: "end", Type: "stalemate"})
+						if err != nil {
+							log.Println("Counldn't set stalemate:", err)
 							break
 						}
 					}
 				}
-				fmt.Println(board.getFen())
-			*/
 
-			/*
-				log.Printf("recv: %v\n", moveObj)
-				if moveObj.PieceId != 0 && board.getPieceisBlack(moveObj.PieceId) == board.isBlack {
-					board.fillMove(&moveObj)
+				if numMoves != 0 {
+					rand.Seed(time.Now().UnixNano())
+					engineMove := Move{}
+					switch ENGINE {
+					case "random":
+						engineMove = board.randomEngineMove()
+					case "captureRandom":
+						engineMove = board.captureEngineMove()
+					}
+					engineRookMove := board.Move(&engineMove)
 
-						fmt.Printf("move: %v\n", moveObj)
-						legal := board.isLegal(&moveObj)
-						fmt.Printf("legal: %v\n", legal)
-
-						if legal {
-							_, castledMove := board.move(&moveObj)
-							fmt.Println("a4: ", board.position[4][0])
-							if castledMove.PieceId != 0 {
-								err = c.WriteJSON(castledMove)
-								if err != nil {
-									log.Println("read:", err)
-									break
-								}
-							}
-							fmt.Println("legal move: ", moveObj)
-							err = c.WriteJSON(moveObj)
-							if err != nil {
-								log.Println("read:", err)
-								break
-							}
-							fmt.Println("turn: ", board.isBlack)
-							fmt.Println("a4: ", board.position[4][0])
+					err = c.WriteJSON(JSONRequest{RequestType: "move", PieceId: engineMove.pieceId, CaptureId: engineMove.captureId, To: engineMove.to, Promote: engineMove.promote})
+					if err != nil {
+						log.Println("write:", err)
+						break
+					}
+					if engineRookMove.pieceId != 0 {
+						err = c.WriteJSON(JSONRequest{RequestType: "move", PieceId: engineRookMove.pieceId, CaptureId: 0, To: engineRookMove.to})
+						if err != nil {
+							log.Println("engineRookMove write:", err)
+							break
 						}
 					}
-			*/
+				}
+			}
 		}
 	}))
 

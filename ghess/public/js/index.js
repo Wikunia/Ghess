@@ -1,5 +1,9 @@
 var socket = new WebSocket("ws://localhost:3000/ws")
 
+var pieceId = 0;
+var captureId = 0;
+var to = 0;
+
 socket.onopen = function(e) {
     socket.send(JSON.stringify({"NewConnection": true}));
 };
@@ -11,6 +15,14 @@ socket.onmessage = function (event) {
     } else if (jsonObj.requestType == "move") {
         movePiece(jsonObj)
         resetSurrounding()
+    } else if (jsonObj.requestType == "promotion") {
+        let promotionDialog = document.getElementById("promotion");
+        pieceId = jsonObj.pieceId
+        captureId = jsonObj.captureId
+        to = jsonObj.to
+        promotionDialog.showModal();
+    } else if (jsonObj.requestType == "end") {
+        alert(jsonObj.type)
     }
 }
 
@@ -50,6 +62,26 @@ function movePiece(move) {
     var x = move.to % 8;
     piece.style.left = (x*10)+"vmin";
     piece.style.top = (y*10)+"vmin";
+    if (move.promote != 0) {
+        // 1 queen, 2 rook, 3 bishop, 4 knight
+        let current_source = piece.src
+        let parts = current_source.split("/")
+        color = parts[parts.length-1].split("_")[0]
+        switch (move.promote) {
+            case 1:
+                piece.src = "images/"+color+"_queen.png"
+                break;
+            case 2:
+                piece.src = "images/"+color+"_rook.png"
+                break;
+            case 3:
+                piece.src = "images/"+color+"_bishop.png"
+                break;
+            case 4:
+                piece.src = "images/"+color+"_knight.png"
+                break;
+        }
+    }
 }
 
 function onDragStart(event) {
@@ -116,3 +148,27 @@ function onClick(event) {
     var data = JSON.stringify({"requestType": "movement", "pieceId": pieceId});
     socket.send(data)
 }
+
+let promotionQueen = document.getElementById("promotionQueen");
+promotionQueen.addEventListener('click', function() {
+    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "promote": 1});
+    socket.send(data);
+})
+
+let promotionRook = document.getElementById("promotionRook");
+promotionRook.addEventListener('click', function() {
+    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "promote": 2});
+    socket.send(data);
+})
+
+let promotionBishop = document.getElementById("promotionBishop");
+promotionBishop.addEventListener('click', function() {
+    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "promote": 3});
+    socket.send(data);
+})
+
+let promotionKnight = document.getElementById("promotionKnight");
+promotionKnight.addEventListener('click', function() {
+    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "promote": 4});
+    socket.send(data);
+})

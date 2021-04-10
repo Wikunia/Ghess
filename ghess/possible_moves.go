@@ -12,7 +12,7 @@ func (board *Board) getNumberOfMoves(startPly, ply int, isBlacksTurn bool) int {
 		moves := board.pieces[pieceId].moves
 		numMoves := board.pieces[pieceId].numMoves
 		for mId := 0; mId < numMoves; mId++ {
-			move := board.NewMove(pieceId, 0, moves[mId])
+			move, _ := board.NewMove(pieceId, 0, moves[mId], 0)
 			/*
 				padding := (startPly - ply) * 2
 				for i := 0; i < padding; i++ {

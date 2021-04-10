@@ -458,7 +458,8 @@ func (board *Board) setKingMovement(piece *Piece, wasLastColor bool) {
 }
 
 // NewMove creates a move object given a pieceId, to and checks whether the move is a capture. If isCapture is set to true
-func (board *Board) NewMove(pieceId int, captureId int, to int) Move {
+func (board *Board) NewMove(pieceId int, captureId int, to int, promote int) (Move, bool) {
+	needsPromotionType := false
 	from := board.pieces[pieceId].pos
 	if captureId != 0 {
 		to = board.pieces[captureId].pos
@@ -473,7 +474,14 @@ func (board *Board) NewMove(pieceId int, captureId int, to int) Move {
 			}
 		}
 	}
-	return Move{pieceId: pieceId, captureId: captureId, from: from, to: to}
+	// check for promotion
+	if board.pieces[pieceId].pieceType == PAWN && promote == 0 {
+		_, y := xy(to)
+		if (y == 0 && !board.pieces[pieceId].isBlack) || (y == 7 && board.pieces[pieceId].isBlack) {
+			needsPromotionType = true
+		}
+	}
+	return Move{pieceId: pieceId, captureId: captureId, from: from, to: to, promote: promote}, needsPromotionType
 }
 
 func (board *Board) TempMove(m *Move) Move {
@@ -492,6 +500,19 @@ func (board *Board) TempMove(m *Move) Move {
 	board.pieces[m.pieceId].posB = 1 << m.to
 	board.pos2PieceId[m.from] = 0
 	board.pos2PieceId[m.to] = m.pieceId
+	// promotion
+	if m.promote != 0 {
+		switch m.promote {
+		case 1:
+			board.pieces[m.pieceId].pieceType = 'q'
+		case 2:
+			board.pieces[m.pieceId].pieceType = 'r'
+		case 3:
+			board.pieces[m.pieceId].pieceType = 'b'
+		case 4:
+			board.pieces[m.pieceId].pieceType = 'n'
+		}
+	}
 
 	board.whitePiecePosB = board.combinePositionsOf(board.whiteIds)
 	board.blackPiecePosB = board.combinePositionsOf(board.blackIds)
@@ -511,10 +532,10 @@ func (board *Board) TempMove(m *Move) Move {
 	if piece.pieceType == KING && x == 4 {
 		if m.from+2*EAST == m.to {
 			isCastle = true
-			rookMove = board.NewMove(board.pos2PieceId[m.from+3*EAST], 0, m.from+EAST)
+			rookMove, _ = board.NewMove(board.pos2PieceId[m.from+3*EAST], 0, m.from+EAST, 0)
 		} else if m.from+2*WEST == m.to {
 			isCastle = true
-			rookMove = board.NewMove(board.pos2PieceId[m.from+4*WEST], 0, m.from+WEST)
+			rookMove, _ = board.NewMove(board.pos2PieceId[m.from+4*WEST], 0, m.from+WEST, 0)
 		}
 	}
 	if isCastle {
@@ -534,17 +555,17 @@ func (board *Board) Move(m *Move) Move {
 }
 
 func (board *Board) reverseMove(m *Move, boardPrimitives *BoardPrimitives) {
-	revMmove := board.NewMove(m.pieceId, 0, m.from)
+	revMmove, _ := board.NewMove(m.pieceId, 0, m.from, 0)
 	if board.pieces[m.pieceId].pieceType == KING {
 		_, y := xy(m.from)
 		// king side
 		if m.to-m.from == 2 {
 			rookId := board.pos2PieceId[y*8+5]
-			reverseCastleMove := board.NewMove(rookId, 0, y*8+7)
+			reverseCastleMove, _ := board.NewMove(rookId, 0, y*8+7, 0)
 			board.TempMove(&reverseCastleMove)
 		} else if m.to-m.from == -2 { // queen side
 			rookId := board.pos2PieceId[y*8+3]
-			reverseCastleMove := board.NewMove(rookId, 0, y*8)
+			reverseCastleMove, _ := board.NewMove(rookId, 0, y*8, 0)
 			board.TempMove(&reverseCastleMove)
 		}
 	}
