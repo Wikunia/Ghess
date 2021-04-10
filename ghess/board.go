@@ -185,6 +185,32 @@ func (board *Board) setSlidingpieceMovement(piece *Piece, wasLastColor bool) {
 				// we can defend our own pieces though if we just moved -> this makes it impossible that the king can capture a defended piece
 				if wasLastColor {
 					board.setPieceCanMoveTo(piece, pos)
+					// en passant case where the pawn of the color that just moved is in front of the other pawn that can capture it
+					// we need to disallow capturing if it would be check otherwise
+					if (board.isBlacksTurn && board.en_passant_pos == pos+8) || (!board.isBlacksTurn && board.en_passant_pos == pos-8) {
+						// the en passant can be possible if it's either east or west direction
+						if dirId == WEST_ID || dirId == EAST_ID {
+							// is there a pawn of opposite color at pos+dir ?
+							if stepFactor+1 < board.movesTilEdge[piece.pos][dirId] && board.pos2PieceId[pos+dir] != 0 {
+								possiblePawnPiece := board.pieces[board.pos2PieceId[pos+dir]]
+								if possiblePawnPiece.pieceType == PAWN && piece.isBlack != possiblePawnPiece.isBlack {
+									// en passant case fully possible, but is there even a king in sight? :D
+									for stepFactorKingHunt := stepFactor + 2; stepFactorKingHunt <= board.movesTilEdge[piece.pos][dirId]; stepFactorKingHunt++ {
+										stepKingHunt := stepFactorKingHunt * dir
+										posKingHunt := piece.pos + stepKingHunt
+										// okay there is another piece in between -> all is safe
+										if board.pos2PieceId[posKingHunt] != 0 && posKingHunt != oppositeKingPos {
+											break
+										}
+										// disallow en passant capture
+										if posKingHunt == oppositeKingPos {
+											board.pieces[board.pos2PieceId[pos+dir]].pinnedMoveB &= ^(1 << board.en_passant_pos)
+										}
+									}
+								}
+							}
+						}
+					}
 				}
 				break
 			}
@@ -212,25 +238,42 @@ func (board *Board) setSlidingpieceMovement(piece *Piece, wasLastColor bool) {
 							board.setPieceCanMoveTo(piece, pos+dir)
 						}
 					}
+					enPassantCase := false
 					// set pinned pieces if we can catch the king afterwards
 					for stepFactorKingHunt := stepFactor + 1; stepFactorKingHunt <= board.movesTilEdge[piece.pos][dirId]; stepFactorKingHunt++ {
 						stepKingHunt := stepFactorKingHunt * dir
 						posKingHunt := piece.pos + stepKingHunt
-						// if there is another piece in between => no pin
+
+						// if there is another piece in between => no pin (besides special en passant case)
 						if board.pos2PieceId[posKingHunt] != 0 && posKingHunt != oppositeKingPos {
-							break
+							// if there is a pawn of the previous color in between which can be captured en passant.
+							// Like i.e 8/2p5/3p4/KP5r/1R3pPk/8/4P3/8 b - g3 0 1
+							// we need to disallow en passant
+							if board.en_passant_pos != -1 {
+								if (board.isBlacksTurn && board.en_passant_pos == posKingHunt+8) || (!board.isBlacksTurn && board.en_passant_pos == posKingHunt-8) {
+									enPassantCase = true
+								}
+							}
+							if !enPassantCase {
+								break
+							}
 						}
 
 						if posKingHunt == oppositeKingPos {
 							// piece at pos is pinned
 							pinnedPieceId := board.pos2PieceId[pos]
-							// reset pinnedMove to be able to set 1s to the positions it can actually move to
-							board.pieces[pinnedPieceId].pinnedMoveB = 0
-							// set the pinnedMove bitset starting from the piece through the pinned piece up to the king (not including but doesn't matter)
-							for stepFactorPin := 0; stepFactorPin < stepFactorKingHunt; stepFactorPin++ {
-								stepPin := stepFactorPin * dir
-								posPin := piece.pos + stepPin
-								board.pieces[pinnedPieceId].pinnedMoveB |= 1 << posPin
+							if !enPassantCase {
+								// reset pinnedMove to be able to set 1s to the positions it can actually move to
+								board.pieces[pinnedPieceId].pinnedMoveB = 0
+								// set the pinnedMove bitset starting from the piece through the pinned piece up to the king (not including but doesn't matter)
+								for stepFactorPin := 0; stepFactorPin < stepFactorKingHunt; stepFactorPin++ {
+									stepPin := stepFactorPin * dir
+									posPin := piece.pos + stepPin
+									board.pieces[pinnedPieceId].pinnedMoveB |= 1 << posPin
+								}
+							} else {
+								// we can move forward or capture but not capture en passant
+								board.pieces[pinnedPieceId].pinnedMoveB &= ^(1 << board.en_passant_pos)
 							}
 							break
 						}

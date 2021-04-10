@@ -468,8 +468,8 @@ func Run() {
 	app.Static("/", "./../ghess/public")
 
 	// board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-	board := GetBoardFromFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1") // Kiwipete
-	// board := GetBoardFromFen("8/5r2/8/8/2B5/8/4Q3/8 w - - 0 1")
+	// board := GetBoardFromFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1") // Kiwipete
+	board := GetBoardFromFen("8/2p5/3p4/KP5r/1R2Pp1k/8/6P1/8 b - e3 0 1")
 	// board := GetBoardFromFen("rnbqkbnr/pppp1ppp/8/4p3/8/5N2/PPPP1PPP/4K3 b KQkq - 0 1")
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPB1PPP/R3K2R w KQkq a3 0 0")
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/1n2pnp1/1b1PN3/Pp2P3/5Q1p/1PPB1PPP/R3K2R w KQkq - 0 0")
@@ -517,6 +517,7 @@ func Run() {
 			switch jsonObj.RequestType {
 			case "movement":
 				c.WriteJSON(JSONSurrounding{RequestType: "surrounding", Surrounding: bits2array(board.pieces[jsonObj.PieceId].movementB)})
+				// c.WriteJSON(JSONSurrounding{RequestType: "surrounding", Surrounding: bits2array(board.whitePiecePosB)})
 			case "move", "capture":
 				isMove = true
 				move = board.NewMove(jsonObj.PieceId, jsonObj.CaptureId, jsonObj.To)
