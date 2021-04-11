@@ -49,6 +49,16 @@ func (board *Board) oppositeHasVisionOn(piece *Piece, pos int) bool {
 	}
 }
 
+func (board *Board) sameHasVisionOn(piece *Piece, pos int) bool {
+	if piece.isBlack {
+		// check if black has vision on pos
+		return board.blackPieceMovB&(1<<pos) != 0
+	} else {
+		// check if white has vision on pos
+		return board.whitePieceMovB&(1<<pos) != 0
+	}
+}
+
 // hasBlackPieceOn returns whether there is a black piece on pos
 func (board *Board) hasBlackPieceOn(pos int) bool {
 	var posB uint64 = 1 << pos

@@ -24,17 +24,17 @@ const BISHOP = 'b'
 const PAWN = 'p'
 
 const ENGINE1 = "random"
-const ENGINE2 = "captureRandom"
-const GAME_MODE = "human_vs_human"
+const ENGINE2 = "checkCaptureRandom"
+const GAME_MODE = "engine_vs_engine"
 
 // normal start
-// const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 // KiwiPete
 // const START_FEN = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
 
 // Position 4
-const START_FEN = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1"
+// const START_FEN = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1"
 
 type Piece struct {
 	id          int
@@ -515,6 +515,8 @@ func (board *Board) makeEngineMove() (Move, Move) {
 		engineMove = board.randomEngineMove()
 	case "captureRandom":
 		engineMove = board.captureEngineMove()
+	case "checkCaptureRandom":
+		engineMove = board.checkCaptureEngineMove()
 	}
 	// time.Sleep(time.Duration((rand.Intn(3) + 1)) * time.Second)
 	time.Sleep(500 * time.Millisecond)
