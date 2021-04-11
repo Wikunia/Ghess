@@ -1,7 +1,6 @@
 package ghess
 
 import (
-	"fmt"
 	"math/rand"
 )
 
@@ -18,13 +17,22 @@ func (board *Board) randomEngineMove() Move {
 		moves := board.pieces[pieceId].moves
 		numMoves := board.pieces[pieceId].numMoves
 		for mId := 0; mId < numMoves; mId++ {
-			move, _ := board.NewMove(pieceId, 0, moves[mId], 0)
-			possibleMoves = append(possibleMoves, move)
-			n++
+			numTinyMoves := 1
+			_, isPromotion := board.NewMove(pieceId, 0, moves[mId], 0)
+			if isPromotion {
+				numTinyMoves = 4
+			}
+			x := 0
+			for i := 0; i < numTinyMoves; i++ {
+				if isPromotion {
+					x++
+				}
+				move, _ := board.NewMove(pieceId, 0, moves[mId], x)
+				possibleMoves = append(possibleMoves, move)
+				n++
+			}
 		}
 	}
 	moveId := rand.Intn(n)
-	fmt.Println("moveId: ", moveId)
-	fmt.Println("possibleMoves: ", n)
 	return possibleMoves[moveId]
 }

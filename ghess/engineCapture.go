@@ -19,13 +19,24 @@ func (board *Board) captureEngineMove() Move {
 		moves := board.pieces[pieceId].moves
 		numMoves := board.pieces[pieceId].numMoves
 		for mId := 0; mId < numMoves; mId++ {
-			move, _ := board.NewMove(pieceId, 0, moves[mId], 0)
-			if move.captureId != 0 {
-				captureMoves = append(captureMoves, move)
-				nCaptures++
+			numTinyMoves := 1
+			_, isPromotion := board.NewMove(pieceId, 0, moves[mId], 0)
+			if isPromotion {
+				numTinyMoves = 4
 			}
-			possibleMoves = append(possibleMoves, move)
-			n++
+			x := 0
+			for i := 0; i < numTinyMoves; i++ {
+				if isPromotion {
+					x++
+				}
+				move, _ := board.NewMove(pieceId, 0, moves[mId], x)
+				if move.captureId != 0 {
+					captureMoves = append(captureMoves, move)
+					nCaptures++
+				}
+				possibleMoves = append(possibleMoves, move)
+				n++
+			}
 		}
 	}
 	// first capture something

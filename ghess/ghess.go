@@ -23,7 +23,18 @@ const KNIGHT = 'n'
 const BISHOP = 'b'
 const PAWN = 'p'
 
-const ENGINE = "captureRandom"
+const ENGINE1 = "random"
+const ENGINE2 = "captureRandom"
+const GAME_MODE = "human_vs_human"
+
+// normal start
+// const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+// KiwiPete
+// const START_FEN = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
+
+// Position 4
+const START_FEN = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1"
 
 type Piece struct {
 	id          int
@@ -90,6 +101,9 @@ func NewBoard(pieces [33]Piece, whiteIds [16]int, blackIds [16]int, isBlack bool
 
 	var pos2PieceId [64]int
 	for _, piece := range pieces {
+		if piece.id == 0 {
+			continue
+		}
 		pos2PieceId[piece.pos] = piece.id
 	}
 	board := Board{
@@ -148,7 +162,7 @@ type JSONSurrounding struct {
 
 type JSONEnd struct {
 	RequestType string `json:"requestType"`
-	Type        string `json:"type"`
+	Msg         string `json:"msg"`
 }
 
 var websocketConns map[int]*websocket.Conn
@@ -278,7 +292,7 @@ func displayGround() string {
 			color := colors[(i+j)%2]
 			left := strconv.Itoa(j * 10)
 			top := strconv.Itoa(i * 10)
-			result += `<div id="square_` + strconv.Itoa(id) + `" class="square square_` + color + `"> </div>`
+			result += `<div id="square_` + strconv.Itoa(id) + `" class="square square_` + color + `" ondrop="onDrop(event);" ondragover="onDragOver(event);" > </div>`
 			result += `<div id="square_` + strconv.Itoa(id) + `_overlay" class="square_overlay" ondrop="onDrop(event);" ondragover="onDragOver(event);" style="left: ` + left + `vmin; top: ` + top + `vmin;"> </div>`
 			id++
 		}
@@ -365,6 +379,18 @@ func getAlgebraicFromMove(m *Move) string {
 	toX, toY := xy(m.to)
 	moveStr := string(rune('a'+fromX)) + strconv.Itoa(8-fromY)
 	moveStr += string(rune('a'+toX)) + strconv.Itoa(8-toY)
+	if m.promote != 0 {
+		switch m.promote {
+		case 1:
+			moveStr += "q"
+		case 2:
+			moveStr += "r"
+		case 3:
+			moveStr += "b"
+		case 4:
+			moveStr += "n"
+		}
+	}
 	return moveStr
 }
 
@@ -379,13 +405,13 @@ func (board *Board) MoveLongAlgebraic(moveStr string) error {
 
 func (board *Board) getMoveFromLongAlgebraic(moveStr string) (Move, error) {
 	move := Move{}
-	if len(moveStr) != 5 {
-		return move, fmt.Errorf("currently only algebraic notation with 5 chars is supported")
+	if len(moveStr) != 4 && len(moveStr) != 5 {
+		return move, fmt.Errorf("currently only algebraic notation with 4 or 5 chars (with promotion) is supported")
 	}
 	fromX := int(moveStr[0] - 'a')
 	fromY := 8 - int(moveStr[1]-'0')
-	toX := int(moveStr[3] - 'a')
-	toY := 8 - int(moveStr[4]-'0')
+	toX := int(moveStr[2] - 'a')
+	toY := 8 - int(moveStr[3]-'0')
 	pieceId := board.pos2PieceId[fromY*8+fromX]
 	if pieceId == 0 {
 		return move, fmt.Errorf("there is no piece at that position")
@@ -393,12 +419,140 @@ func (board *Board) getMoveFromLongAlgebraic(moveStr string) (Move, error) {
 	if board.pieces[pieceId].isBlack != board.isBlacksTurn {
 		return move, fmt.Errorf("the piece has the wrong color")
 	}
-	move, _ = board.NewMove(pieceId, 0, toY*8+toX, 0)
+	promotionIdx := 0
+	if len(moveStr) == 5 {
+		switch moveStr[4] {
+		case 'q':
+			promotionIdx = 1
+		case 'r':
+			promotionIdx = 2
+		case 'b':
+			promotionIdx = 3
+		case 'n':
+			promotionIdx = 4
+		default:
+			return Move{}, fmt.Errorf("last char must be q,r,b,n for a 5 character string")
+		}
+	}
+	move, _ = board.NewMove(pieceId, 0, toY*8+toX, promotionIdx)
 	if board.isLegal(&move) {
 		// capture will be filled automatically
 		return move, nil
 	}
 	return move, fmt.Errorf("the move is not legal")
+}
+func (board *Board) checkGameEnded() (bool, string) {
+	numMoves := board.GetNumberOfMoves(1)
+	if numMoves == 0 {
+		if board.check {
+			msg := "Checkmate!<br>Good job "
+			if board.isBlacksTurn {
+				msg += "White!"
+			} else {
+				msg += "Black!"
+			}
+			return true, msg
+		} else {
+			return true, "Stalemate..."
+		}
+	}
+	// 50 move rule
+	if board.halfMoves == 100 {
+		return true, "Draw: Come on you had 50 moves!"
+	}
+	// draw by insufficent material
+	hasEnoughMaterial := false
+	numBishop := 0
+	numKnight := 0
+	for _, pieceId := range board.whiteIds {
+		piece := board.pieces[pieceId]
+		if piece.posB != 0 {
+			if piece.pieceType == PAWN || piece.pieceType == ROOK || piece.pieceType == QUEEN {
+				hasEnoughMaterial = true
+				break
+			} else if piece.pieceType == KNIGHT {
+				numKnight += 1
+			} else if piece.pieceType == BISHOP {
+				numBishop += 1
+			}
+		}
+	}
+	if !hasEnoughMaterial && numKnight <= 1 && numBishop <= 1 {
+		hasEnoughMaterial = false
+		numBishop := 0
+		numKnight := 0
+		for _, pieceId := range board.blackIds {
+			piece := board.pieces[pieceId]
+			if piece.posB != 0 {
+				if piece.pieceType == PAWN || piece.pieceType == ROOK || piece.pieceType == QUEEN {
+					hasEnoughMaterial = true
+					break
+				} else if piece.pieceType == KNIGHT {
+					numKnight += 1
+				} else if piece.pieceType == BISHOP {
+					numBishop += 1
+				}
+			}
+		}
+		if !hasEnoughMaterial && numKnight <= 1 && numBishop <= 1 {
+			return true, "Draw: Not enough material..."
+		}
+	}
+
+	return false, ""
+}
+
+func (board *Board) makeEngineMove() (Move, Move) {
+	rand.Seed(time.Now().UnixNano())
+	engineMove := Move{}
+	engine := ENGINE1
+	if board.isBlacksTurn {
+		engine = ENGINE2
+	}
+
+	switch engine {
+	case "random":
+		engineMove = board.randomEngineMove()
+	case "captureRandom":
+		engineMove = board.captureEngineMove()
+	}
+	// time.Sleep(time.Duration((rand.Intn(3) + 1)) * time.Second)
+	time.Sleep(500 * time.Millisecond)
+	engineRookMove := board.Move(&engineMove)
+	return engineMove, engineRookMove
+}
+
+func (board *Board) makeHumanMove(c *websocket.Conn) (bool, Move, Move) {
+	jsonObj := JSONRequest{}
+	err := c.ReadJSON(&jsonObj)
+	if err != nil {
+		log.Println("read:", err)
+		return false, Move{}, Move{}
+	}
+	isMove := false
+	needsPromotionType := false
+	move := Move{}
+	switch jsonObj.RequestType {
+	case "movement":
+		c.WriteJSON(JSONSurrounding{RequestType: "surrounding", Surrounding: bits2array(board.pieces[jsonObj.PieceId].movementB)})
+		// c.WriteJSON(JSONSurrounding{RequestType: "surrounding", Surrounding: bits2array(board.blackPiecePosB)})
+	case "move", "capture":
+		isMove = true
+		move, needsPromotionType = board.NewMove(jsonObj.PieceId, jsonObj.CaptureId, jsonObj.To, jsonObj.Promote)
+		if needsPromotionType {
+			if board.isLegal(&move) {
+				c.WriteJSON(JSONRequest{RequestType: "promotion", PieceId: jsonObj.PieceId, CaptureId: jsonObj.CaptureId, To: jsonObj.To})
+			}
+			isMove = false
+		}
+	}
+
+	if isMove && board.isLegal(&move) {
+		rookMove := board.Move(&move)
+
+		return true, move, rookMove
+	}
+	return false, Move{}, Move{}
 }
 
 func Run() {
@@ -412,9 +566,9 @@ func Run() {
 
 	app.Static("/", "./../ghess/public")
 
-	board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+	board := GetBoardFromFen(START_FEN)
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1") // Kiwipete
-	// board := GetBoardFromFen("8/2p5/3p4/KP5r/1R2Pp1k/8/6p1/8 b - e3 0 1")
+	// board := GetBoardFromFen("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1") // position 4
 	// board := GetBoardFromFen("rnbqkbnr/pppp1ppp/8/4p3/8/5N2/PPPP1PPP/4K3 b KQkq - 0 1")
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPB1PPP/R3K2R w KQkq a3 0 0")
 	// board := GetBoardFromFen("r3k2r/p1ppqpb1/1n2pnp1/1b1PN3/Pp2P3/5Q1p/1PPB1PPP/R3K2R w KQkq - 0 0")
@@ -449,33 +603,57 @@ func Run() {
 		websocketConns[nextConnectionId] = c
 		c.WriteJSON(JSONWelcome{Id: nextConnectionId})
 		nextConnectionId += 1
-		for {
 
-			var jsonObj JSONRequest
-			err := c.ReadJSON(&jsonObj)
-			if err != nil {
-				log.Println("read:", err)
+		isStarted := false
+
+		var jsonObj JSONRequest
+		err := c.ReadJSON(&jsonObj)
+		move := Move{}
+		rookMove := Move{}
+		isMove := false
+		for {
+			ended, msg := board.checkGameEnded()
+			if ended {
+				err = c.WriteJSON(JSONEnd{RequestType: "end", Msg: msg})
+				if err != nil {
+					log.Println("Couldn't send end message:", err)
+					break
+				}
 				break
 			}
-			isMove := false
-			needsPromotionType := false
-			move := Move{}
-			switch jsonObj.RequestType {
-			case "movement":
-				c.WriteJSON(JSONSurrounding{RequestType: "surrounding", Surrounding: bits2array(board.pieces[jsonObj.PieceId].movementB)})
-				// c.WriteJSON(JSONSurrounding{RequestType: "surrounding", Surrounding: bits2array(board.whitePiecePosB)})
-			case "move", "capture":
-				isMove = true
-				move, needsPromotionType = board.NewMove(jsonObj.PieceId, jsonObj.CaptureId, jsonObj.To, jsonObj.Promote)
-				if needsPromotionType {
-					c.WriteJSON(JSONRequest{RequestType: "promotion", PieceId: jsonObj.PieceId, CaptureId: jsonObj.CaptureId, To: jsonObj.To})
-					isMove = false
+
+			if GAME_MODE == "engine_vs_engine" {
+				if !isStarted {
+					jsonObj = JSONRequest{}
+					err = c.ReadJSON(&jsonObj)
+					if err != nil {
+						log.Println("Couldn't read message:", err)
+						break
+					}
+					if jsonObj.RequestType == "start" {
+						isStarted = true
+					}
 				}
+
+				if !isStarted {
+					continue
+				} else {
+					isStarted = false
+				}
+
+				move, rookMove = board.makeEngineMove()
+				isMove = true
+			} else if GAME_MODE == "human_vs_engine" {
+				if board.isBlacksTurn {
+					move, rookMove = board.makeEngineMove()
+					isMove = true
+				} else {
+					isMove, move, rookMove = board.makeHumanMove(c)
+				}
+			} else if GAME_MODE == "human_vs_human" {
+				isMove, move, rookMove = board.makeHumanMove(c)
 			}
-
-			if isMove && board.isLegal(&move) {
-				rookMove := board.Move(&move)
-
+			if isMove {
 				err = c.WriteJSON(JSONRequest{RequestType: "move", PieceId: move.pieceId, CaptureId: move.captureId, To: move.to, Promote: move.promote})
 				if err != nil {
 					log.Println("write:", err)
@@ -488,48 +666,7 @@ func Run() {
 						break
 					}
 				}
-
-				numMoves := board.GetNumberOfMoves(1)
-				if numMoves == 0 {
-					if board.check {
-						err = c.WriteJSON(JSONEnd{RequestType: "end", Type: "checkmate"})
-						if err != nil {
-							log.Println("Counldn't set checkmate:", err)
-							break
-						}
-					} else {
-						err = c.WriteJSON(JSONEnd{RequestType: "end", Type: "stalemate"})
-						if err != nil {
-							log.Println("Counldn't set stalemate:", err)
-							break
-						}
-					}
-				}
-
-				if numMoves != 0 {
-					rand.Seed(time.Now().UnixNano())
-					engineMove := Move{}
-					switch ENGINE {
-					case "random":
-						engineMove = board.randomEngineMove()
-					case "captureRandom":
-						engineMove = board.captureEngineMove()
-					}
-					engineRookMove := board.Move(&engineMove)
-
-					err = c.WriteJSON(JSONRequest{RequestType: "move", PieceId: engineMove.pieceId, CaptureId: engineMove.captureId, To: engineMove.to, Promote: engineMove.promote})
-					if err != nil {
-						log.Println("write:", err)
-						break
-					}
-					if engineRookMove.pieceId != 0 {
-						err = c.WriteJSON(JSONRequest{RequestType: "move", PieceId: engineRookMove.pieceId, CaptureId: 0, To: engineRookMove.to})
-						if err != nil {
-							log.Println("engineRookMove write:", err)
-							break
-						}
-					}
-				}
+				isMove = false
 			}
 		}
 	}))

@@ -12,7 +12,11 @@ func (board *Board) getNumberOfMoves(startPly, ply int, isBlacksTurn bool) int {
 		moves := board.pieces[pieceId].moves
 		numMoves := board.pieces[pieceId].numMoves
 		for mId := 0; mId < numMoves; mId++ {
-			move, _ := board.NewMove(pieceId, 0, moves[mId], 0)
+			numTinyMoves := 1
+			_, isPromotion := board.NewMove(pieceId, 0, moves[mId], 0)
+			if isPromotion {
+				numTinyMoves = 4
+			}
 			/*
 				padding := (startPly - ply) * 2
 				for i := 0; i < padding; i++ {
@@ -20,14 +24,21 @@ func (board *Board) getNumberOfMoves(startPly, ply int, isBlacksTurn bool) int {
 				}
 				fmt.Println(getAlgebraicFromMove(&move))
 			*/
-			if ply == 1 {
-				n += 1
-				continue
+			x := 0
+			for i := 0; i < numTinyMoves; i++ {
+				if ply == 1 {
+					n += 1
+					continue
+				}
+				if isPromotion {
+					x++
+				}
+				move, _ := board.NewMove(pieceId, 0, moves[mId], x)
+				boardPrimitives := board.getBoardPrimitives()
+				board.Move(&move)
+				n += board.getNumberOfMoves(startPly, ply-1, !isBlacksTurn)
+				board.reverseMove(&move, &boardPrimitives)
 			}
-			boardPrimitives := board.getBoardPrimitives()
-			board.Move(&move)
-			n += board.getNumberOfMoves(startPly, ply-1, !isBlacksTurn)
-			board.reverseMove(&move, &boardPrimitives)
 		}
 	}
 	return n

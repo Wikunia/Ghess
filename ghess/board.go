@@ -120,7 +120,11 @@ func (board *Board) setMovement() {
 
 	for pieceId := range board.pieces {
 		board.pieces[pieceId].pinnedMoveB = math.MaxUint64
+		board.pieces[pieceId].movementB = 0
 	}
+	board.whitePiecePosB = board.combinePositionsOf(board.whiteIds)
+	board.blackPiecePosB = board.combinePositionsOf(board.blackIds)
+	// printBits(board.blackPiecePosB)
 
 	for _, pieceId := range pieceIds {
 		board.pieces[pieceId].numMoves = 0
@@ -503,6 +507,8 @@ func (board *Board) TempMove(m *Move) Move {
 	// promotion
 	if m.promote != 0 {
 		switch m.promote {
+		case -1:
+			board.pieces[m.pieceId].pieceType = 'p' // reverse promotion
 		case 1:
 			board.pieces[m.pieceId].pieceType = 'q'
 		case 2:
@@ -549,13 +555,24 @@ func (board *Board) Move(m *Move) Move {
 
 	board.updateCastleRights(m)
 
+	board.nextMove++
+	if m.captureId != 0 || board.pieces[m.pieceId].pieceType != PAWN {
+		board.halfMoves++
+	} else {
+		board.halfMoves = 0
+	}
+
 	board.isBlacksTurn = !board.isBlacksTurn
 	board.setMovement()
 	return rookMove
 }
 
 func (board *Board) reverseMove(m *Move, boardPrimitives *BoardPrimitives) {
-	revMmove, _ := board.NewMove(m.pieceId, 0, m.from, 0)
+	revPromoteInto := 0
+	if m.promote != 0 {
+		revPromoteInto = -1 // reverse promote back into a pawn
+	}
+	revMmove, _ := board.NewMove(m.pieceId, 0, m.from, revPromoteInto)
 	if board.pieces[m.pieceId].pieceType == KING {
 		_, y := xy(m.from)
 		// king side
@@ -642,17 +659,18 @@ func (board *Board) updateCastleRights(m *Move) {
 	}
 	// if rook moves remove the castle right for that side
 	if piece.pieceType == ROOK {
-		file, _ := xy(m.from)
+		file, rank := xy(m.from)
+		// ask for rank to avoid weird bug where black promotes to a rook
 		if file == 7 {
-			if piece.isBlack {
+			if piece.isBlack && rank == 0 {
 				board.black_castle_king = false
-			} else {
+			} else if !piece.isBlack && rank == 7 {
 				board.white_castle_king = false
 			}
 		} else if file == 0 {
-			if piece.isBlack {
+			if piece.isBlack && rank == 0 {
 				board.black_castle_queen = false
-			} else {
+			} else if !piece.isBlack && rank == 7 {
 				board.white_castle_queen = false
 			}
 		}
@@ -661,18 +679,19 @@ func (board *Board) updateCastleRights(m *Move) {
 	// if rook gets captured
 	if m.captureId > 0 {
 		capturedPiece := board.pieces[m.captureId]
-		file, _ := xy(m.to)
+		file, rank := xy(m.to)
+		// ask for rank to avoid weird bug where black promotes to a rook
 		if capturedPiece.pieceType == ROOK {
-			if capturedPiece.isBlack {
+			if capturedPiece.isBlack && rank == 0 {
 				if file == 7 {
 					board.black_castle_king = false
-				} else {
+				} else if file == 0 {
 					board.black_castle_queen = false
 				}
-			} else {
+			} else if !capturedPiece.isBlack && rank == 7 {
 				if file == 7 {
 					board.white_castle_king = false
-				} else {
+				} else if file == 0 {
 					board.white_castle_queen = false
 				}
 			}

@@ -4,6 +4,8 @@ var pieceId = 0;
 var captureId = 0;
 var to = 0;
 
+var endDialog = document.getElementById("endDialog")
+
 socket.onopen = function(e) {
     socket.send(JSON.stringify({"NewConnection": true}));
 };
@@ -13,8 +15,8 @@ socket.onmessage = function (event) {
     if (jsonObj.requestType == "surrounding") {
         showSurrounding(jsonObj)
     } else if (jsonObj.requestType == "move") {
-        movePiece(jsonObj)
         resetSurrounding()
+        movePiece(jsonObj)
     } else if (jsonObj.requestType == "promotion") {
         let promotionDialog = document.getElementById("promotion");
         pieceId = jsonObj.pieceId
@@ -22,7 +24,8 @@ socket.onmessage = function (event) {
         to = jsonObj.to
         promotionDialog.showModal();
     } else if (jsonObj.requestType == "end") {
-        alert(jsonObj.type)
+        endDialog.innerHTML = jsonObj.msg;
+        endDialog.showModal();
     }
 }
 
@@ -60,6 +63,10 @@ function movePiece(move) {
     // can move to this position if en passant
     var y = Math.floor(move.to/8);
     var x = move.to % 8;
+
+    field = document.querySelector("#square_"+move.to+"_overlay") 
+    field.style.display = "block"
+
     piece.style.left = (x*10)+"vmin";
     piece.style.top = (y*10)+"vmin";
     if (move.promote != 0) {
@@ -119,6 +126,7 @@ function onDrop(event) {
     let pieceId = id.split("_")[1]
 
     let pieceOrField = event.target.id.split("_")[0]
+    console.log("event.target.id: ", event.target.id)
 
     if (pieceOrField == "piece") {
         sendCapturePiece(pieceId, event.target.id)
@@ -129,7 +137,7 @@ function onDrop(event) {
 
 function sendMovePiece(pieceId, toStr) {
     let [_,to] = toStr.split("_")
-    console.log(pieceId, " -> ", to)
+    console.log("move: ", pieceId, " -> ", to)
 
     var data = JSON.stringify({"requestType": "move", "pieceId": parseInt(pieceId), "to": parseInt(to)});
     socket.send(data);
@@ -137,7 +145,7 @@ function sendMovePiece(pieceId, toStr) {
 
 function sendCapturePiece(pieceId, toStr) {
     let [_,captureId] = toStr.split("_")
-    console.log(pieceId, " -> ", captureId)
+    console.log("capture: ", pieceId, " -> ", captureId)
 
     var data = JSON.stringify({"requestType": "capture", "pieceId": parseInt(pieceId), "captureId": parseInt(captureId)});
     socket.send(data);
@@ -151,24 +159,30 @@ function onClick(event) {
 
 let promotionQueen = document.getElementById("promotionQueen");
 promotionQueen.addEventListener('click', function() {
-    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "promote": 1});
+    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "captureId": captureId,  "promote": 1});
     socket.send(data);
 })
 
 let promotionRook = document.getElementById("promotionRook");
 promotionRook.addEventListener('click', function() {
-    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "promote": 2});
+    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "captureId": captureId, "promote": 2});
     socket.send(data);
 })
 
 let promotionBishop = document.getElementById("promotionBishop");
 promotionBishop.addEventListener('click', function() {
-    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "promote": 3});
+    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "captureId": captureId, "promote": 3});
     socket.send(data);
 })
 
 let promotionKnight = document.getElementById("promotionKnight");
 promotionKnight.addEventListener('click', function() {
-    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "promote": 4});
+    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "captureId": captureId, "promote": 4});
+    socket.send(data);
+})
+
+let startButton = document.getElementById("start");
+startButton.addEventListener('click', function() {
+    var data = JSON.stringify({"requestType": "start"});
     socket.send(data);
 })

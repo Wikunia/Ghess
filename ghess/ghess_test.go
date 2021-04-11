@@ -61,7 +61,6 @@ func TestFen(t *testing.T) {
 	}
 }
 
-/*
 func TestHalfMoves(t *testing.T) {
 	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 	for _, test := range halfMovesTests {
@@ -78,6 +77,7 @@ func TestHalfMoves(t *testing.T) {
 	}
 }
 
+/*
 func BenchmarkNumMoves(b *testing.B) {
 	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 	board := GetBoardFromFen(startFEN)

@@ -1,5 +1,7 @@
 package ghess
 
+import "fmt"
+
 func abs(x int) int {
 	if x < 0 {
 		return -x
@@ -63,4 +65,20 @@ func (board *Board) setBoardPrimitives(bp *BoardPrimitives) {
 	board.nextMove = bp.nextMove
 	board.whiteKingId = bp.whiteKingId
 	board.blackKingId = bp.blackKingId
+}
+
+func printBits(bits uint64) {
+	fmt.Println("==================")
+	arr := bits2array(bits)
+	for i := 0; i < 8; i++ {
+		for j := 0; j < 8; j++ {
+			if arr[i][j] {
+				fmt.Print("X")
+			} else {
+				fmt.Print("-")
+			}
+		}
+		fmt.Print("\n")
+	}
+	fmt.Println("==================")
 }
