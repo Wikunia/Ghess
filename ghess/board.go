@@ -97,7 +97,7 @@ func (board *Board) combinePositionsOf(pieceIds [16]int) uint64 {
 }
 
 // combineMovementsOf combies the movements of all specified pieces and outputs the combined movements as uint64
-func (board *Board) combineMovementsOf(pieceIds [16]int) uint64 {
+func (board *Board) combineMovementsOf(pieceIds *[16]int) uint64 {
 	var posB uint64
 	for _, pieceId := range pieceIds {
 		posB |= board.pieces[pieceId].movementB
@@ -134,11 +134,21 @@ func (board *Board) setMovement() {
 	}
 	board.whitePiecePosB = board.combinePositionsOf(board.whiteIds)
 	board.blackPiecePosB = board.combinePositionsOf(board.blackIds)
-	board.whitePieceMovB = board.combineMovementsOf(board.whiteIds)
-	board.blackPieceMovB = board.combineMovementsOf(board.blackIds)
+	board.whitePieceMovB = 0
+	board.blackPieceMovB = 0
 	// printBits(board.blackPiecePosB)
-
+	firstOfNewColor := true
 	for _, pieceId := range pieceIds {
+		wasLastColor = board.pieces[pieceId].isBlack == lastColor
+		// combine the position once for the last color when we change color
+		if !wasLastColor && firstOfNewColor {
+			firstOfNewColor = false
+			if !lastColor {
+				board.whitePieceMovB = board.combineMovementsOf(&board.whiteIds)
+			} else {
+				board.blackPieceMovB = board.combineMovementsOf(&board.blackIds)
+			}
+		}
 		board.pieces[pieceId].numMoves = 0
 		// reset current movement
 		board.pieces[pieceId].movementB = 0
@@ -146,7 +156,6 @@ func (board *Board) setMovement() {
 		if board.pieces[pieceId].posB == 0 {
 			continue
 		}
-		wasLastColor = board.pieces[pieceId].isBlack == lastColor
 		switch board.pieces[pieceId].pieceType {
 		case BISHOP, ROOK, QUEEN:
 			board.setSlidingpieceMovement(&board.pieces[pieceId], wasLastColor)
@@ -157,17 +166,12 @@ func (board *Board) setMovement() {
 		case KING:
 			board.setKingMovement(&board.pieces[pieceId], wasLastColor)
 		}
-		if !lastColor {
-			board.whitePieceMovB = board.combineMovementsOf(board.whiteIds)
-		} else {
-			board.blackPieceMovB = board.combineMovementsOf(board.blackIds)
-		}
 	}
 	// update the other color
 	if !lastColor {
-		board.blackPieceMovB = board.combineMovementsOf(board.blackIds)
+		board.blackPieceMovB = board.combineMovementsOf(&board.blackIds)
 	} else {
-		board.whitePieceMovB = board.combineMovementsOf(board.whiteIds)
+		board.whitePieceMovB = board.combineMovementsOf(&board.whiteIds)
 	}
 }
 
