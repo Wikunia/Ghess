@@ -1,7 +1,6 @@
 package ghess
 
 import (
-	"fmt"
 	"math/rand"
 )
 
@@ -42,7 +41,7 @@ func (board *Board) checkCaptureEngineMove() Move {
 					if !board.oppositeHasVisionOn(&board.pieces[pieceId], move.to) || board.doubleCheck {
 						checkMoves = append(checkMoves, move)
 						nCheck++
-					} else {
+					} else if move.captureId == 0 {
 						// don't choose this move
 						board.reverseMove(&move, &boardPrimitives)
 						continue
@@ -70,18 +69,15 @@ func (board *Board) checkCaptureEngineMove() Move {
 	// first check
 	if nCheck != 0 {
 		moveId := rand.Intn(nCheck)
-		fmt.Println("was check")
 		return checkMoves[moveId]
 	}
 
 	// second capture something
 	if nCaptures != 0 {
 		moveId := rand.Intn(nCaptures)
-		fmt.Println("was capture")
 		return captureMoves[moveId]
 	}
 	// else just a move...
-	fmt.Println("was random")
 	moveId := rand.Intn(n)
 	return possibleMoves[moveId]
 }
