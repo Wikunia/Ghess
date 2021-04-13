@@ -37,20 +37,6 @@ func TestNumMovesFromFEN(t *testing.T) {
 	}
 }
 
-/*
-func TestIsLegal(t *testing.T) {
-	for _, test := range legalMovesTests {
-		board := GetBoardFromFen(test.fen)
-		_, err := board.getMoveFromLongAlgebraic(test.moveStr)
-		if err != nil && test.legal {
-			t.Errorf("should be legal but has algebraic error for %s with error %s", test.moveStr, err)
-		} else if !test.legal && err == nil {
-			t.Errorf("should be illegal but has no algebraic error for %s", test.moveStr)
-		}
-	}
-}
-*/
-
 func TestFen(t *testing.T) {
 	// not an actual FEN
 	expected := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq c2 0 1"
@@ -77,27 +63,42 @@ func TestHalfMoves(t *testing.T) {
 	}
 }
 
-/*
-func BenchmarkNumMoves(b *testing.B) {
+func TestNextMoves(t *testing.T) {
 	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-	board := GetBoardFromFen(startFEN)
-	board.MoveLongAlgebraic("e2-e4")
-	for i := 0; i < b.N; i++ {
-		board.GetNumberOfMoves(3, false)
+	for _, test := range nextMovesTests {
+		board := GetBoardFromFen(startFEN)
+		for _, moveStr := range test.moves {
+			err := board.MoveLongAlgebraic(moveStr)
+			if err != nil {
+				t.Errorf(err.Error())
+			}
+		}
+		if board.nextMove != test.expected {
+			t.Errorf("Next move expected: %d, actual: %d", test.expected, board.nextMove)
+		}
 	}
 }
-*/
 
-/*
-func BenchmarkNumMoves(b *testing.B) {
+func TestBits2Array(t *testing.T) {
 	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 	board := GetBoardFromFen(startFEN)
-	board.MoveLongAlgebraic("e2-e4")
-	for i := 0; i < b.N; i++ {
-		board.GetNumberOfMoves(3, false)
+	// should be the ranks 4+5 (0 based from top)
+	arr := bits2array(board.whitePieceMovB)
+	for i := 0; i < 8; i++ {
+		for j := 0; j < 8; j++ {
+			if i == 4 || i == 5 {
+				if !arr[i][j] {
+					t.Errorf("White has no vision on %d,%d but should have", i, j)
+				}
+			} else {
+				if arr[i][j] {
+					t.Errorf("White has vision on %d,%d but shouldn't have", i, j)
+				}
+			}
+		}
 	}
+	printBits(board.whitePieceMovB)
 }
-*/
 
 func BenchmarkNumMove(b *testing.B) {
 	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"

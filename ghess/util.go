@@ -22,10 +22,6 @@ func xy(n int) (x, y int) {
 	return
 }
 
-func isInside(y, x int) bool {
-	return y >= 0 && y <= 7 && x >= 0 && x <= 7
-}
-
 func bits2array(bits uint64) [8][8]bool {
 	var res [8][8]bool
 	for i := 0; i < 8; i++ {
