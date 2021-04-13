@@ -100,6 +100,32 @@ func TestBits2Array(t *testing.T) {
 	printBits(board.whitePieceMovB)
 }
 
+func TestEngines(t *testing.T) {
+	move := Move{}
+	for _, test := range engineMovesTests {
+		board := GetBoardFromFen(test.fen)
+		switch test.engineName {
+		case "random":
+			move = board.randomEngineMove()
+		case "captureRandom":
+			move = board.captureEngineMove()
+		case "checkCaptureRandom":
+			move = board.checkCaptureEngineMove()
+		}
+		algebraic := getAlgebraicFromMove(&move)
+		found := false
+		for _, moveStr := range test.possible {
+			if algebraic == moveStr {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("The move %s is not a possible engine move for engine %s", algebraic, test.engineName)
+		}
+	}
+}
+
 func BenchmarkNumMove(b *testing.B) {
 	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 	board := GetBoardFromFen(startFEN)
