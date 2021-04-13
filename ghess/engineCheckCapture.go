@@ -1,14 +1,16 @@
 package ghess
 
 import (
+	"fmt"
 	"math/rand"
 )
 
-// checkCaptureEngineMove tries to check then capture and then random
+// checkCaptureEngineMove tries to check (if the piece checking can't be captured, or double check) then capture and then random
 func (board *Board) checkCaptureEngineMove() Move {
 	possibleMoves := []Move{}
 	captureMoves := []Move{}
 	checkMoves := []Move{}
+	highestMaterialGain := -100000
 	n := 0
 	nCaptures := 0
 	nCheck := 0
@@ -18,6 +20,7 @@ func (board *Board) checkCaptureEngineMove() Move {
 	} else {
 		pieceIds = board.whiteIds
 	}
+	myColor := board.isBlacksTurn
 	for _, pieceId := range pieceIds {
 		moves := board.pieces[pieceId].moves
 		numMoves := board.pieces[pieceId].numMoves
@@ -36,39 +39,49 @@ func (board *Board) checkCaptureEngineMove() Move {
 				boardPrimitives := board.getBoardPrimitives()
 				board.Move(&move)
 				if board.check {
-					board.isBlacksTurn = !board.isBlacksTurn
-					board.setMovement()
-					if board.sameHasVisionOn(&board.pieces[pieceId], move.to) || !board.oppositeHasVisionOn(&board.pieces[pieceId], move.to) {
+					if !board.oppositeHasVisionOn(&board.pieces[pieceId], move.to) || board.doubleCheck {
 						checkMoves = append(checkMoves, move)
 						nCheck++
+					} else {
+						// don't choose this move
+						board.reverseMove(&move, &boardPrimitives)
+						continue
 					}
-					board.isBlacksTurn = !board.isBlacksTurn
 				}
 
-				board.reverseMove(&move, &boardPrimitives)
-
 				if move.captureId != 0 {
-					captureMoves = append(captureMoves, move)
-					nCaptures++
+					cMaterialGain := board.countMaterialOfColor(myColor) - board.countMaterialOfColor(!myColor)
+					if cMaterialGain > highestMaterialGain {
+						highestMaterialGain = cMaterialGain
+						captureMoves = []Move{move}
+						nCaptures = 1
+					} else if cMaterialGain == highestMaterialGain {
+						captureMoves = append(captureMoves, move)
+						nCaptures++
+					}
 				}
 				possibleMoves = append(possibleMoves, move)
 				n++
+
+				board.reverseMove(&move, &boardPrimitives)
 			}
 		}
 	}
 	// first check
 	if nCheck != 0 {
 		moveId := rand.Intn(nCheck)
+		fmt.Println("was check")
 		return checkMoves[moveId]
 	}
 
 	// second capture something
 	if nCaptures != 0 {
 		moveId := rand.Intn(nCaptures)
+		fmt.Println("was capture")
 		return captureMoves[moveId]
 	}
 	// else just a move...
-
+	fmt.Println("was random")
 	moveId := rand.Intn(n)
 	return possibleMoves[moveId]
 }

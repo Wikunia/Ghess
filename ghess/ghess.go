@@ -23,9 +23,12 @@ const KNIGHT = 'n'
 const BISHOP = 'b'
 const PAWN = 'p'
 
-const ENGINE1 = "random"
+const ENGINE1 = "captureRandom"
 const ENGINE2 = "checkCaptureRandom"
+
 const GAME_MODE = "engine_vs_engine"
+
+// const GAME_MODE = "human_vs_human"
 
 // normal start
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
@@ -35,6 +38,17 @@ const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 // Position 4
 // const START_FEN = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1"
+
+// const START_FEN = "8/7P/8/8/8/8/2K1k3/8 b  - 8 87"
+
+var materialCountMap = map[rune]int{
+	'k': 900,
+	'q': 100,
+	'r': 50,
+	'b': 35,
+	'n': 30,
+	'p': 10,
+}
 
 type Piece struct {
 	id          int
@@ -614,6 +628,7 @@ func Run() {
 		rookMove := Move{}
 		isMove := false
 		for {
+			fmt.Println(board.getFen())
 			ended, msg := board.checkGameEnded()
 			if ended {
 				err = c.WriteJSON(JSONEnd{RequestType: "end", Msg: msg})

@@ -134,6 +134,8 @@ func (board *Board) setMovement() {
 	}
 	board.whitePiecePosB = board.combinePositionsOf(board.whiteIds)
 	board.blackPiecePosB = board.combinePositionsOf(board.blackIds)
+	board.whitePieceMovB = board.combineMovementsOf(board.whiteIds)
+	board.blackPieceMovB = board.combineMovementsOf(board.blackIds)
 	// printBits(board.blackPiecePosB)
 
 	for _, pieceId := range pieceIds {
@@ -564,8 +566,10 @@ func (board *Board) Move(m *Move) Move {
 	rookMove := board.TempMove(m)
 
 	board.updateCastleRights(m)
+	if board.isBlacksTurn {
+		board.nextMove++
+	}
 
-	board.nextMove++
 	if m.captureId != 0 || board.pieces[m.pieceId].pieceType != PAWN {
 		board.halfMoves++
 	} else {
@@ -707,4 +711,18 @@ func (board *Board) updateCastleRights(m *Move) {
 			}
 		}
 	}
+}
+
+func (board *Board) countMaterialOfColor(isBlack bool) int {
+	pieceIds := board.whiteIds
+	if isBlack {
+		pieceIds = board.blackIds
+	}
+	materialCount := 0
+	for _, pieceId := range pieceIds {
+		if board.pieces[pieceId].posB != 0 {
+			materialCount += materialCountMap[board.pieces[pieceId].pieceType]
+		}
+	}
+	return materialCount
 }
