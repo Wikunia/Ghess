@@ -157,6 +157,15 @@ func (board *Board) getStandardAlgebraicFromMove(m *Move) string {
 	toX, toY := xy(m.to)
 	endToStr := string(rune('a'+toX)) + strconv.Itoa(8-toY)
 
+	// castle
+	if piece.pieceType == KING && abs(fromX-toX) == 2 {
+		if toX == 6 {
+			return "O-O"
+		} else {
+			return "O-O-O"
+		}
+	}
+
 	// no ambiguity
 	if len(ambiguityMoves) == 0 {
 		return board.getBasicStandardAlgebraic(m)

@@ -79,6 +79,20 @@ func TestNextMoves(t *testing.T) {
 	}
 }
 
+func TestNotation(t *testing.T) {
+	for _, test := range standardAlgebraicTests {
+		board := GetBoardFromFen(test.fen)
+		move, err := board.getMoveFromLongAlgebraic(test.move)
+		if err != nil {
+			t.Errorf(err.Error())
+		}
+		moveStr := board.getStandardAlgebraicFromMove(&move)
+		if moveStr != test.expected {
+			t.Errorf("Standard Algebraic Notation expected %s actually %s", test.expected, moveStr)
+		}
+	}
+}
+
 func TestBits2Array(t *testing.T) {
 	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 	board := GetBoardFromFen(startFEN)
