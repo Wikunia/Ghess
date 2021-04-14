@@ -118,11 +118,8 @@ func (board *Board) getDifferentFileStandardAlgebraic(m *Move) string {
 	toX, toY := xy(m.to)
 	endToStr := string(rune('a'+toX)) + strconv.Itoa(8-toY)
 	if m.captureId == 0 {
-		if piece.pieceType == PAWN {
-			return string(rune('a'+fromX)) + endToStr + getPromotionStr(m.promote)
-		} else {
-			return string(unicode.ToUpper(piece.pieceType)) + string(rune('a'+fromX)) + endToStr
-		}
+		// can't happen for a pawn
+		return string(unicode.ToUpper(piece.pieceType)) + string(rune('a'+fromX)) + endToStr
 	} else {
 		if piece.pieceType == PAWN {
 			return string(rune('a'+fromX)) + "x" + endToStr + getPromotionStr(m.promote)

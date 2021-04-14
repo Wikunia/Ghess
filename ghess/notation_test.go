@@ -9,6 +9,7 @@ type standardAlgebraic struct {
 var standardAlgebraicTests = []standardAlgebraic{
 	{"5k2/8/3N1N2/8/4r3/2N3N1/4PPPP/4K2R w K - 0 1", "e1g1", "O-O"},
 	{"5k2/8/3N1N2/8/4r3/6N1/3NPPPP/4K2R w K - 0 1", "d6e4", "Nd6xe4"},
+	{"5k2/8/3N1N2/8/r7/6NP/3NPPP1/4K2R w K - 1 2", "d6e4", "Nd6e4"},
 	{"5k2/8/3N1N2/8/4r3/6N1/3NPPPP/4K2R w K - 0 1", "g3e4", "Ngxe4"},
 	{"5k2/8/3N1N2/8/4r3/6N1/3NPPPP/R3K2R w KQ - 0 1", "e1c1", "O-O-O"},
 	{"8/1P6/8/8/5K1k/8/8/8 w - - 0 1", "b7b8q", "b8=Q"},
@@ -27,4 +28,5 @@ var standardAlgebraicTests = []standardAlgebraic{
 	{"2n5/1P4R1/8/1R1b1p2/2P1PK1k/8/1R4r1/6R1 w - - 0 1", "b2g2", "Rbxg2"},
 	{"2n5/1P4R1/8/1R1b1p2/2P1PK1k/8/1R4r1/6R1 w - - 0 1", "g1g2", "R1xg2"},
 	{"2n5/1P4R1/8/1R1b1p2/2P1PK1k/8/1R4r1/6R1 w - - 0 1", "g7g2", "R7xg2"},
+	{"2n5/1P4R1/8/1R1P1p2/4PK1k/8/1R5r/6R1 w - - 1 2", "b2g2", "Rbg2"},
 }
