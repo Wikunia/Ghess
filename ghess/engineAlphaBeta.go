@@ -26,6 +26,7 @@ func (board *Board) staticEvaluation() float64 {
 			return 0.0
 		}
 	}
+	// white pieces - black pieces
 	return float64(board.countMaterialOfColor(false) - board.countMaterialOfColor(true))
 }
 
@@ -40,6 +41,7 @@ func (board *Board) getPossibleMovesOrdered(isMaximizing bool) []Move {
 		// we look for highest score so if not maximizing
 		evals = append(evals, Eval{move: move, score: score})
 	}
+	// descending order
 	sort.Slice(evals, func(i, j int) bool {
 		return evals[i].score > evals[j].score
 	})
@@ -68,7 +70,7 @@ func (board *Board) alphaBetaEngineMove() Move {
 			}
 			boardPrimitives := board.getBoardPrimitives()
 			board.Move(&move)
-			eval := board.alphaBetaPruning(currentDepth-1, math.Inf(-1), math.Inf(1), !myColor)
+			eval := board.alphaBetaPruning(currentDepth-1, math.Inf(-1), math.Inf(1), myColor)
 			evals = append(evals, Eval{move: move, score: -eval})
 			board.reverseMove(&move, &boardPrimitives)
 		}
@@ -93,7 +95,6 @@ func (board *Board) alphaBetaEngineMove() Move {
 	})
 
 	bestScore := completelyEvaluated[0].score
-	fmt.Println("bestScore: ", bestScore)
 	whenWorse := len(completelyEvaluated)
 	for i := range completelyEvaluated {
 		if completelyEvaluated[i].score < bestScore {
@@ -115,7 +116,7 @@ func (board *Board) alphaBetaPruning(depth int, alpha, beta float64, maximizing 
 	// maximizing player
 	if maximizing {
 		maxEval := math.Inf(-1)
-		for _, move := range board.getPossibleMovesOrdered(true) {
+		for _, move := range board.getPossibleMovesOrdered(maximizing) {
 			boardPrimitives := board.getBoardPrimitives()
 			board.Move(&move)
 			eval := board.alphaBetaPruning(depth-1, alpha, beta, !maximizing)
@@ -129,7 +130,7 @@ func (board *Board) alphaBetaPruning(depth int, alpha, beta float64, maximizing 
 		return maxEval
 	} else { // minimizing player
 		minEval := math.Inf(1)
-		for _, move := range board.getPossibleMovesOrdered(false) {
+		for _, move := range board.getPossibleMovesOrdered(maximizing) {
 			boardPrimitives := board.getBoardPrimitives()
 			board.Move(&move)
 			eval := board.alphaBetaPruning(depth-1, alpha, beta, !maximizing)
