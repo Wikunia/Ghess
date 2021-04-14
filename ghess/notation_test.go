@@ -22,4 +22,9 @@ var standardAlgebraicTests = []standardAlgebraic{
 	{"2n5/1P6/8/5p2/5K1k/8/8/8 w - - 0 1", "b7c8n", "bxc8=N"},
 	{"2n5/1P6/8/5p2/5K1k/8/8/8 w - - 0 1", "b7c8r", "bxc8=R"},
 	{"2n5/1P6/8/3b1p2/2P1PK1k/8/8/8 w - - 0 1", "c4d5", "cxd5"},
+	{"2n5/1P4R1/8/1R1b1p2/2P1PK1k/8/1R4r1/6R1 w - - 0 1", "b2b3", "R2b3"},
+	{"2n5/1P4R1/8/1R1b1p2/2P1PK1k/8/1R4r1/6R1 w - - 0 1", "b5b3", "R5b3"},
+	{"2n5/1P4R1/8/1R1b1p2/2P1PK1k/8/1R4r1/6R1 w - - 0 1", "b2g2", "Rbxg2"},
+	{"2n5/1P4R1/8/1R1b1p2/2P1PK1k/8/1R4r1/6R1 w - - 0 1", "g1g2", "R1xg2"},
+	{"2n5/1P4R1/8/1R1b1p2/2P1PK1k/8/1R4r1/6R1 w - - 0 1", "g7g2", "R7xg2"},
 }
