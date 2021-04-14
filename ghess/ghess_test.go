@@ -125,6 +125,8 @@ func TestEngines(t *testing.T) {
 			move = board.captureEngineMove()
 		case "checkCaptureRandom":
 			move = board.checkCaptureEngineMove()
+		case "alphaBeta":
+			move = board.alphaBetaEngineMove()
 		}
 		algebraic := getAlgebraicFromMove(&move)
 		found := false
