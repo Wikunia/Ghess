@@ -6,18 +6,16 @@ type halfMoves struct {
 }
 
 var halfMovesTests = []halfMoves{
-	{[]string{"e2-e4"}, 0},
-	{[]string{"e2-e4", "b7-b6", "g1-f3", "c8-a6", "g2-g3", "d7-d5", "f1-g2", "d5-e4", "f3-d4", "e7-e5", "d2-d3", "f8-b4"}, 1},
+	{[]string{"e2e4"}, 0},
+	{[]string{"e2e4", "b7b6", "g1f3", "c8a6", "g2g3", "d7d5", "f1g2", "d5e4", "f3d4", "e7e5", "d2d3", "f8b4"}, 1},
 }
 
-type legalMoves struct {
-	fen     string
-	moveStr string
-	legal   bool
+type nextMoves struct {
+	moves    []string
+	expected int
 }
 
-var legalMovesTests = []legalMoves{
-	{"r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 0", "a2-a4", true},
-	{"r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 0", "e1-g1", true},
-	{"r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 0", "a6-e2", false},
+var nextMovesTests = []nextMoves{
+	{[]string{"e2e4"}, 1},
+	{[]string{"e2e4", "b7b6", "g1f3", "c8a6", "g2g3", "d7d5", "f1g2", "d5e4", "f3d4", "e7e5", "d2d3", "f8b4"}, 7},
 }

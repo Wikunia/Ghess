@@ -1,5 +1,11 @@
 var socket = new WebSocket("ws://localhost:3000/ws")
 
+var pieceId = 0;
+var captureId = 0;
+var to = 0;
+
+var endDialog = document.getElementById("endDialog")
+
 socket.onopen = function(e) {
     socket.send(JSON.stringify({"NewConnection": true}));
 };
@@ -9,15 +15,25 @@ socket.onmessage = function (event) {
     if (jsonObj.requestType == "surrounding") {
         showSurrounding(jsonObj)
     } else if (jsonObj.requestType == "move") {
-        movePiece(jsonObj)
         resetSurrounding()
+        movePiece(jsonObj)
+    } else if (jsonObj.requestType == "promotion") {
+        let promotionDialog = document.getElementById("promotion");
+        pieceId = jsonObj.pieceId
+        captureId = jsonObj.captureId
+        to = jsonObj.to
+        promotionDialog.showModal();
+    } else if (jsonObj.requestType == "end") {
+        endDialog.innerHTML = jsonObj.msg;
+        endDialog.showModal();
     }
 }
 
 function resetSurrounding() {
     for (let i = 0; i < 8; i++) {
         for (let j = 0; j < 8; j++) {
-            field = document.querySelector("#square_"+i+"_"+j+"_overlay") 
+            let p = i*8 + j
+            field = document.querySelector("#square_"+p+"_overlay") 
             field.style.display = "none"
         }
         
@@ -30,7 +46,8 @@ function showSurrounding(jsonObj) {
     for (let i = 0; i < 8; i++) {
         for (let j = 0; j < 8; j++) {
             if (surrounding[i][j]) {
-                field = document.querySelector("#square_"+i+"_"+j+"_overlay") 
+                let p = i*8 + j
+                field = document.querySelector("#square_"+p+"_overlay") 
                 field.style.display = "block"
             } 
         }
@@ -44,8 +61,34 @@ function movePiece(move) {
         capturedPiece.style.display = "none";
     } 
     // can move to this position if en passant
-    piece.style.left = (move.toX*10)+"vmin";
-    piece.style.top = (move.toY*10)+"vmin";
+    var y = Math.floor(move.to/8);
+    var x = move.to % 8;
+
+    field = document.querySelector("#square_"+move.to+"_overlay") 
+    field.style.display = "block"
+
+    piece.style.left = (x*10)+"vmin";
+    piece.style.top = (y*10)+"vmin";
+    if (move.promote != 0) {
+        // 1 queen, 2 rook, 3 bishop, 4 knight
+        let current_source = piece.src
+        let parts = current_source.split("/")
+        color = parts[parts.length-1].split("_")[0]
+        switch (move.promote) {
+            case 1:
+                piece.src = "images/"+color+"_queen.png"
+                break;
+            case 2:
+                piece.src = "images/"+color+"_rook.png"
+                break;
+            case 3:
+                piece.src = "images/"+color+"_bishop.png"
+                break;
+            case 4:
+                piece.src = "images/"+color+"_knight.png"
+                break;
+        }
+    }
 }
 
 function onDragStart(event) {
@@ -83,6 +126,7 @@ function onDrop(event) {
     let pieceId = id.split("_")[1]
 
     let pieceOrField = event.target.id.split("_")[0]
+    console.log("event.target.id: ", event.target.id)
 
     if (pieceOrField == "piece") {
         sendCapturePiece(pieceId, event.target.id)
@@ -91,17 +135,17 @@ function onDrop(event) {
     }
 }
 
-function sendMovePiece(pieceId, to) {
-    let [_,to_y,to_x] = to.split("_")
-    console.log(pieceId, " -> ", to_y, " ", to_x)
+function sendMovePiece(pieceId, toStr) {
+    let [_,to] = toStr.split("_")
+    console.log("move: ", pieceId, " -> ", to)
 
-    var data = JSON.stringify({"requestType": "move", "pieceId": parseInt(pieceId), "toY": parseInt(to_y), "toX": parseInt(to_x)});
+    var data = JSON.stringify({"requestType": "move", "pieceId": parseInt(pieceId), "to": parseInt(to)});
     socket.send(data);
 }
 
-function sendCapturePiece(pieceId, to) {
-    let [_,captureId] = to.split("_")
-    console.log(pieceId, " -> ", captureId)
+function sendCapturePiece(pieceId, toStr) {
+    let [_,captureId] = toStr.split("_")
+    console.log("capture: ", pieceId, " -> ", captureId)
 
     var data = JSON.stringify({"requestType": "capture", "pieceId": parseInt(pieceId), "captureId": parseInt(captureId)});
     socket.send(data);
@@ -112,3 +156,33 @@ function onClick(event) {
     var data = JSON.stringify({"requestType": "movement", "pieceId": pieceId});
     socket.send(data)
 }
+
+let promotionQueen = document.getElementById("promotionQueen");
+promotionQueen.addEventListener('click', function() {
+    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "captureId": captureId,  "promote": 1});
+    socket.send(data);
+})
+
+let promotionRook = document.getElementById("promotionRook");
+promotionRook.addEventListener('click', function() {
+    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "captureId": captureId, "promote": 2});
+    socket.send(data);
+})
+
+let promotionBishop = document.getElementById("promotionBishop");
+promotionBishop.addEventListener('click', function() {
+    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "captureId": captureId, "promote": 3});
+    socket.send(data);
+})
+
+let promotionKnight = document.getElementById("promotionKnight");
+promotionKnight.addEventListener('click', function() {
+    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "captureId": captureId, "promote": 4});
+    socket.send(data);
+})
+
+let startButton = document.getElementById("start");
+startButton.addEventListener('click', function() {
+    var data = JSON.stringify({"requestType": "start"});
+    socket.send(data);
+})
