@@ -18,9 +18,9 @@ func (board *Board) staticEvaluation() float64 {
 	if gameEnded {
 		if endType == "checkmate" {
 			if board.isBlacksTurn {
-				return 100000.0
+				return 100000.0 - float64(board.nextMove)
 			} else {
-				return -100000.0
+				return -(100000.0 - float64(board.nextMove))
 			}
 		} else if endType == "draw" {
 			return 0.0
@@ -71,7 +71,10 @@ func (board *Board) alphaBetaEngineMove() Move {
 			boardPrimitives := board.getBoardPrimitives()
 			board.Move(&move)
 			eval := board.alphaBetaPruning(currentDepth-1, math.Inf(-1), math.Inf(1), myColor)
-			evals = append(evals, Eval{move: move, score: -eval})
+			if myColor {
+				eval = -eval
+			}
+			evals = append(evals, Eval{move: move, score: eval})
 			board.reverseMove(&move, &boardPrimitives)
 		}
 		if inTime {
@@ -103,6 +106,7 @@ func (board *Board) alphaBetaEngineMove() Move {
 		}
 	}
 	moveId := rand.Intn(whenWorse)
+	fmt.Println("number of moves with same evaluation: ", whenWorse)
 	fmt.Println("score: ", completelyEvaluated[moveId])
 	return completelyEvaluated[moveId].move
 }
