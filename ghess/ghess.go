@@ -23,10 +23,12 @@ const KNIGHT = 'n'
 const BISHOP = 'b'
 const PAWN = 'p'
 
-const ENGINE1 = "captureRandom"
-const ENGINE2 = "checkCaptureRandom"
+const MAX_ENGINE_TIME = 4
 
-const GAME_MODE = "engine_vs_engine"
+const ENGINE1 = "checkCaptureRandom"
+const ENGINE2 = "alphaBeta"
+
+const GAME_MODE = "human_vs_engine"
 
 // const GAME_MODE = "human_vs_human"
 
@@ -455,7 +457,7 @@ func (board *Board) getMoveFromLongAlgebraic(moveStr string) (Move, error) {
 	}
 	return move, fmt.Errorf("the move is not legal")
 }
-func (board *Board) checkGameEnded() (bool, string) {
+func (board *Board) checkGameEnded() (bool, string, string) {
 	numMoves := board.GetNumberOfMoves(1)
 	if numMoves == 0 {
 		if board.check {
@@ -465,14 +467,14 @@ func (board *Board) checkGameEnded() (bool, string) {
 			} else {
 				msg += "Black!"
 			}
-			return true, msg
+			return true, "checkmate", msg
 		} else {
-			return true, "Stalemate..."
+			return true, "draw", "Stalemate..."
 		}
 	}
 	// 50 move rule
 	if board.halfMoves == 100 {
-		return true, "Draw: Come on you had 50 moves!"
+		return true, "draw", "Draw: Come on you had 50 moves!"
 	}
 	// draw by insufficent material
 	hasEnoughMaterial := false
@@ -509,11 +511,11 @@ func (board *Board) checkGameEnded() (bool, string) {
 			}
 		}
 		if !hasEnoughMaterial && numKnight <= 1 && numBishop <= 1 {
-			return true, "Draw: Not enough material..."
+			return true, "draw", "Draw: Not enough material..."
 		}
 	}
 
-	return false, ""
+	return false, "", ""
 }
 
 func (board *Board) makeEngineMove() (Move, Move) {
@@ -531,9 +533,11 @@ func (board *Board) makeEngineMove() (Move, Move) {
 		engineMove = board.captureEngineMove()
 	case "checkCaptureRandom":
 		engineMove = board.checkCaptureEngineMove()
+	case "alphaBeta":
+		engineMove = board.alphaBetaEngineMove()
 	}
 	// time.Sleep(time.Duration((rand.Intn(3) + 1)) * time.Second)
-	time.Sleep(500 * time.Millisecond)
+	// time.Sleep(500 * time.Millisecond)
 	engineRookMove := board.Move(&engineMove)
 	return engineMove, engineRookMove
 }
@@ -629,7 +633,7 @@ func Run() {
 		isMove := false
 		for {
 			fmt.Println(board.getFen())
-			ended, msg := board.checkGameEnded()
+			ended, _, msg := board.checkGameEnded()
 			if ended {
 				err = c.WriteJSON(JSONEnd{RequestType: "end", Msg: msg})
 				if err != nil {
