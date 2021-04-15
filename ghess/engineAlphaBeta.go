@@ -18,14 +18,15 @@ func (board *Board) staticEvaluation() float64 {
 	if gameEnded {
 		if endType == "checkmate" {
 			if board.isBlacksTurn {
-				return 100000.0
+				return 100000.0 - float64(board.nextMove)
 			} else {
-				return -100000.0
+				return -(100000.0 - float64(board.nextMove))
 			}
 		} else if endType == "draw" {
 			return 0.0
 		}
 	}
+	// white pieces - black pieces
 	return float64(board.countMaterialOfColor(false) - board.countMaterialOfColor(true))
 }
 
@@ -40,6 +41,7 @@ func (board *Board) getPossibleMovesOrdered(isMaximizing bool) []Move {
 		// we look for highest score so if not maximizing
 		evals = append(evals, Eval{move: move, score: score})
 	}
+	// descending order
 	sort.Slice(evals, func(i, j int) bool {
 		return evals[i].score > evals[j].score
 	})
@@ -68,8 +70,11 @@ func (board *Board) alphaBetaEngineMove() Move {
 			}
 			boardPrimitives := board.getBoardPrimitives()
 			board.Move(&move)
-			eval := board.alphaBetaPruning(currentDepth-1, math.Inf(-1), math.Inf(1), !myColor)
-			evals = append(evals, Eval{move: move, score: -eval})
+			eval := board.alphaBetaPruning(currentDepth-1, math.Inf(-1), math.Inf(1), myColor)
+			if myColor {
+				eval = -eval
+			}
+			evals = append(evals, Eval{move: move, score: eval})
 			board.reverseMove(&move, &boardPrimitives)
 		}
 		if inTime {
@@ -93,7 +98,6 @@ func (board *Board) alphaBetaEngineMove() Move {
 	})
 
 	bestScore := completelyEvaluated[0].score
-	fmt.Println("bestScore: ", bestScore)
 	whenWorse := len(completelyEvaluated)
 	for i := range completelyEvaluated {
 		if completelyEvaluated[i].score < bestScore {
@@ -102,6 +106,7 @@ func (board *Board) alphaBetaEngineMove() Move {
 		}
 	}
 	moveId := rand.Intn(whenWorse)
+	fmt.Println("number of moves with same evaluation: ", whenWorse)
 	fmt.Println("score: ", completelyEvaluated[moveId])
 	return completelyEvaluated[moveId].move
 }
@@ -115,7 +120,7 @@ func (board *Board) alphaBetaPruning(depth int, alpha, beta float64, maximizing 
 	// maximizing player
 	if maximizing {
 		maxEval := math.Inf(-1)
-		for _, move := range board.getPossibleMovesOrdered(true) {
+		for _, move := range board.getPossibleMovesOrdered(maximizing) {
 			boardPrimitives := board.getBoardPrimitives()
 			board.Move(&move)
 			eval := board.alphaBetaPruning(depth-1, alpha, beta, !maximizing)
@@ -129,7 +134,7 @@ func (board *Board) alphaBetaPruning(depth int, alpha, beta float64, maximizing 
 		return maxEval
 	} else { // minimizing player
 		minEval := math.Inf(1)
-		for _, move := range board.getPossibleMovesOrdered(false) {
+		for _, move := range board.getPossibleMovesOrdered(maximizing) {
 			boardPrimitives := board.getBoardPrimitives()
 			board.Move(&move)
 			eval := board.alphaBetaPruning(depth-1, alpha, beta, !maximizing)
