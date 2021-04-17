@@ -110,7 +110,7 @@ func (board *Board) AlphaBetaEngineMove() Move {
 	return bestPv[0]
 }
 
-func (board *Board) quiesce(alpha, beta float64, maximizing bool) float64 {
+func (board *Board) quiesce(maximizing bool) float64 {
 	worstScore := board.staticEvaluation()
 	// is there an immediate capture which will reduce my score?
 	for _, move := range board.getPossibleCaptures() {
@@ -118,7 +118,7 @@ func (board *Board) quiesce(alpha, beta float64, maximizing bool) float64 {
 		board.Move(&move)
 		scoreAfterwards := board.staticEvaluation()
 		board.reverseMove(&move, &boardPrimitives)
-		if maximizing {
+		if !maximizing {
 			if scoreAfterwards < worstScore {
 				worstScore = scoreAfterwards
 			}
@@ -136,7 +136,7 @@ func (board *Board) alphaBetaPruning(completedOnce bool, currentDepth, depth int
 
 	gameEnded, _, _ := board.checkGameEnded()
 	if depth == 0 || gameEnded {
-		return true, board.quiesce(alpha, beta, maximizing), startPV
+		return true, board.quiesce(maximizing), startPV
 	}
 	moves := board.getPossibleMovesOrdered(usePv, startPV, currentDepth)
 	bestPv := startPV
