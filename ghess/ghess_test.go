@@ -137,7 +137,7 @@ func TestEngines(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("The move %s is not a possible engine move for engine %s", algebraic, test.engineName)
+			t.Errorf("The move %s is not a possible engine move for engine %s in position %s", algebraic, test.engineName, test.fen)
 		}
 	}
 }

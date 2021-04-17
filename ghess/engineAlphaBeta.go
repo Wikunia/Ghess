@@ -104,7 +104,7 @@ func (board *Board) AlphaBetaEngineMove() Move {
 		}
 	}
 
-	fmt.Printf("evalutad up to depth %d in %.02f sec.\n", currentDepth-1, time.Since(startTime).Seconds())
+	fmt.Printf("evaluated up to depth %d in %.02f sec.\n", currentDepth-1, time.Since(startTime).Seconds())
 	printPv(bestPv)
 	fmt.Println("score from whites perspective: ", bestScore)
 	return bestPv[0]
