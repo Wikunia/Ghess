@@ -82,7 +82,7 @@ func TestNextMoves(t *testing.T) {
 func TestNotation(t *testing.T) {
 	for _, test := range standardAlgebraicTests {
 		board := GetBoardFromFen(test.fen)
-		move, err := board.getMoveFromLongAlgebraic(test.move)
+		move, err := board.GetMoveFromLongAlgebraic(test.move)
 		if err != nil {
 			t.Errorf(err.Error())
 		}
@@ -126,9 +126,9 @@ func TestEngines(t *testing.T) {
 		case "checkCaptureRandom":
 			move = board.checkCaptureEngineMove()
 		case "alphaBeta":
-			move = board.alphaBetaEngineMove()
+			move = board.AlphaBetaEngineMove()
 		}
-		algebraic := getAlgebraicFromMove(&move)
+		algebraic := GetAlgebraicFromMove(&move)
 		found := false
 		for _, moveStr := range test.possible {
 			if algebraic == moveStr {

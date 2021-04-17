@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"sort"
 	"time"
 )
 
 type Eval struct {
+	id    int
 	move  Move
 	score float64
 }
@@ -30,121 +30,146 @@ func (board *Board) staticEvaluation() float64 {
 	return float64(board.countMaterialOfColor(false) - board.countMaterialOfColor(true))
 }
 
-func (board *Board) getPossibleMovesOrdered(isMaximizing bool) []Move {
-	evals := []Eval{}
+func (board *Board) getPossibleMovesOrdered(usePv bool, pv [30]Move, currentDepth int) []Move {
 	orderedMoves := board.getPossibleMoves()
-	for _, move := range orderedMoves {
-		score := board.staticEvaluation()
-		if !isMaximizing {
-			score = -score
-		}
-		// we look for highest score so if not maximizing
-		evals = append(evals, Eval{move: move, score: score})
+	rand.Shuffle(len(orderedMoves), func(i, j int) { orderedMoves[i], orderedMoves[j] = orderedMoves[j], orderedMoves[i] })
+	if pv[currentDepth].pieceId == 0 || !usePv {
+		return orderedMoves
 	}
-	// descending order
-	sort.Slice(evals, func(i, j int) bool {
-		return evals[i].score > evals[j].score
-	})
-	for i := 0; i < len(orderedMoves); i++ {
-		orderedMoves[i] = evals[i].move
-	}
-	return orderedMoves
-}
-
-func (board *Board) alphaBetaEngineMove() Move {
-	currentDepth := 2
-	orderedMoves := board.getPossibleMoves()
-	evals := []Eval{}
-	startTime := time.Now()
-	completelyEvaluated := []Eval{}
-	calcuatedAtLeastOnce := false
-	myColor := board.isBlacksTurn
-
-	for time.Since(startTime) <= MAX_ENGINE_TIME*time.Second {
-		evals = []Eval{}
-		inTime := true
-		for _, move := range orderedMoves {
-			if time.Since(startTime) >= MAX_ENGINE_TIME*time.Second && calcuatedAtLeastOnce {
-				inTime = false
-				break
-			}
-			boardPrimitives := board.getBoardPrimitives()
-			board.Move(&move)
-			eval := board.alphaBetaPruning(currentDepth-1, math.Inf(-1), math.Inf(1), myColor)
-			if myColor {
-				eval = -eval
-			}
-			evals = append(evals, Eval{move: move, score: eval})
-			board.reverseMove(&move, &boardPrimitives)
-		}
-		if inTime {
-			sort.Slice(evals, func(i, j int) bool {
-				return evals[i].score > evals[j].score
-			})
-			for i := 0; i < len(orderedMoves); i++ {
-				orderedMoves[i] = evals[i].move
-			}
-			currentDepth += 1
-			completelyEvaluated = evals
-			calcuatedAtLeastOnce = true
-		}
-
-	}
-
-	fmt.Printf("evalutad up to depth %d in %.02f\n", currentDepth-1, time.Since(startTime).Seconds())
-
-	sort.Slice(completelyEvaluated, func(i, j int) bool {
-		return completelyEvaluated[i].score > completelyEvaluated[j].score
-	})
-
-	bestScore := completelyEvaluated[0].score
-	whenWorse := len(completelyEvaluated)
-	for i := range completelyEvaluated {
-		if completelyEvaluated[i].score < bestScore {
-			whenWorse = i
+	id := 0
+	found := false
+	for i, move := range orderedMoves {
+		if move.isEqual(&pv[currentDepth]) {
+			found = true
+			id = i
 			break
 		}
 	}
-	moveId := rand.Intn(whenWorse)
-	fmt.Println("number of moves with same evaluation: ", whenWorse)
-	fmt.Println("score: ", completelyEvaluated[moveId])
-	return completelyEvaluated[moveId].move
+	if !found {
+		fmt.Println("Could not find: ", pv[currentDepth])
+	}
+	orderedMoves[0], orderedMoves[id] = orderedMoves[id], orderedMoves[0]
+	return orderedMoves
 }
 
-func (board *Board) alphaBetaPruning(depth int, alpha, beta float64, maximizing bool) float64 {
+func (board *Board) getPossibleCaptures() []Move {
+	moves := board.getPossibleMoves()
+	capturedMoves := []Move{}
+	for _, move := range moves {
+		if move.captureId != 0 {
+			capturedMoves = append(capturedMoves, move)
+		}
+	}
+	return capturedMoves
+}
+
+func (board *Board) countNumberOfCaptureMoves() int {
+	moves := board.getPossibleMoves()
+	numCaptures := 0
+	for _, move := range moves {
+		if move.captureId != 0 {
+			numCaptures++
+		}
+	}
+	return numCaptures
+}
+
+func printPv(pv [30]Move) {
+	str := ""
+	for _, move := range pv {
+		if move.pieceId == 0 {
+			break
+		}
+		str += GetAlgebraicFromMove(&move) + " "
+	}
+	fmt.Println(str)
+}
+
+func (board *Board) AlphaBetaEngineMove() Move {
+	currentDepth := 2
+	startTime := time.Now()
+	myColor := board.isBlacksTurn
+	bestPv := [30]Move{}
+	bestScore := 0.0
+	maxTime := MAX_ENGINE_TIME * time.Millisecond
+	completedOnce := false
+
+	for time.Since(startTime) <= maxTime && currentDepth < 30 {
+		completed, score, pv := board.alphaBetaPruning(completedOnce, 0, currentDepth, math.Inf(-1), math.Inf(1), !myColor, bestPv, true, startTime, maxTime)
+		if completed {
+			bestPv = pv
+			bestScore = score
+			currentDepth += 1
+			completedOnce = true
+		}
+	}
+
+	fmt.Printf("evalutad up to depth %d in %.02f sec.\n", currentDepth-1, time.Since(startTime).Seconds())
+	printPv(bestPv)
+	fmt.Println("score from whites perspective: ", bestScore)
+	return bestPv[0]
+}
+
+func (board *Board) alphaBetaPruning(completedOnce bool, currentDepth, depth int, alpha, beta float64, maximizing bool, startPV [30]Move, usePv bool,
+	startTime time.Time, maxTime time.Duration) (bool, float64, [30]Move) {
+
 	gameEnded, _, _ := board.checkGameEnded()
 	if depth == 0 || gameEnded {
-		return board.staticEvaluation()
+		return true, board.staticEvaluation(), startPV
 	}
+	moves := board.getPossibleMovesOrdered(usePv, startPV, currentDepth)
+	bestPv := startPV
 
 	// maximizing player
 	if maximizing {
 		maxEval := math.Inf(-1)
-		for _, move := range board.getPossibleMovesOrdered(maximizing) {
+		for i, move := range moves {
+			if time.Since(startTime) >= maxTime && completedOnce {
+				return false, 0.0, startPV
+			}
+
 			boardPrimitives := board.getBoardPrimitives()
 			board.Move(&move)
-			eval := board.alphaBetaPruning(depth-1, alpha, beta, !maximizing)
+			completed, eval, pv := board.alphaBetaPruning(completedOnce, currentDepth+1, depth-1, alpha, beta, !maximizing, startPV, usePv && i == 0, startTime, maxTime)
 			board.reverseMove(&move, &boardPrimitives)
-			maxEval = math.Max(eval, maxEval)
-			alpha = math.Max(alpha, eval)
+			if !completed {
+				return false, 0.0, startPV
+			}
+			if eval > maxEval {
+				maxEval = eval
+				bestPv = pv
+				bestPv[currentDepth] = move
+			}
+			alpha = math.Max(eval, alpha)
 			if beta <= alpha {
 				break
 			}
 		}
-		return maxEval
+		return true, maxEval, bestPv
 	} else { // minimizing player
 		minEval := math.Inf(1)
-		for _, move := range board.getPossibleMovesOrdered(maximizing) {
+		for i, move := range moves {
+			if time.Since(startTime) >= maxTime && completedOnce {
+				return false, 0.0, startPV
+			}
+
 			boardPrimitives := board.getBoardPrimitives()
 			board.Move(&move)
-			eval := board.alphaBetaPruning(depth-1, alpha, beta, !maximizing)
+			completed, eval, pv := board.alphaBetaPruning(completedOnce, currentDepth+1, depth-1, alpha, beta, !maximizing, startPV, usePv && i == 0, startTime, maxTime)
 			board.reverseMove(&move, &boardPrimitives)
-			minEval = math.Min(eval, minEval)
-			beta = math.Min(beta, eval)
+			if !completed {
+				return false, 0.0, startPV
+			}
+			if eval < minEval {
+				minEval = eval
+				bestPv = pv
+				bestPv[currentDepth] = move
+			}
+			beta = math.Min(eval, beta)
 			if beta <= alpha {
 				break
 			}
 		}
-		return minEval
+		return true, minEval, bestPv
 	}
 }
