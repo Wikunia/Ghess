@@ -579,6 +579,7 @@ func (board *Board) Move(m *Move) Move {
 	} else {
 		board.halfMoves = 0
 	}
+	board.fens = append(board.fens, board.getFenWithoutMoves())
 
 	board.isBlacksTurn = !board.isBlacksTurn
 	board.setMovement()

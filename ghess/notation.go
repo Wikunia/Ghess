@@ -8,7 +8,7 @@ import (
 	"unicode"
 )
 
-func getAlgebraicFromMove(m *Move) string {
+func GetAlgebraicFromMove(m *Move) string {
 	fromX, fromY := xy(m.from)
 	toX, toY := xy(m.to)
 	moveStr := string(rune('a'+fromX)) + strconv.Itoa(8-fromY)
@@ -29,7 +29,7 @@ func getAlgebraicFromMove(m *Move) string {
 }
 
 func (board *Board) MoveLongAlgebraic(moveStr string) error {
-	move, err := board.getMoveFromLongAlgebraic(moveStr)
+	move, err := board.GetMoveFromLongAlgebraic(moveStr)
 	if err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func (board *Board) MoveLongAlgebraic(moveStr string) error {
 	return nil
 }
 
-func (board *Board) getMoveFromLongAlgebraic(moveStr string) (Move, error) {
+func (board *Board) GetMoveFromLongAlgebraic(moveStr string) (Move, error) {
 	move := Move{}
 	if len(moveStr) != 4 && len(moveStr) != 5 {
 		return move, fmt.Errorf("currently only algebraic notation with 4 or 5 chars (with promotion) is supported")

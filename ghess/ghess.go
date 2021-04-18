@@ -23,14 +23,14 @@ const KNIGHT = 'n'
 const BISHOP = 'b'
 const PAWN = 'p'
 
-const MAX_ENGINE_TIME = 4
+const MAX_ENGINE_TIME = 4000 // ms
 
 const ENGINE1 = "checkCaptureRandom"
 const ENGINE2 = "alphaBeta"
 
-const GAME_MODE = "human_vs_engine"
+// const GAME_MODE = "human_vs_engine"
 
-// const GAME_MODE = "human_vs_human"
+const GAME_MODE = "human_vs_human"
 
 // normal start
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
@@ -93,6 +93,7 @@ type Board struct {
 	check              bool
 	doubleCheck        bool
 	blockCheckSquaresB uint64
+	fens               []string
 }
 
 type BoardPrimitives struct {
@@ -106,6 +107,7 @@ type BoardPrimitives struct {
 	nextMove           int
 	whiteKingId        int
 	blackKingId        int
+	fens               []string
 }
 
 func NewBoard(pieces [33]Piece, whiteIds [16]int, blackIds [16]int, isBlack bool,
@@ -145,6 +147,7 @@ func NewBoard(pieces [33]Piece, whiteIds [16]int, blackIds [16]int, isBlack bool
 		check:              false,
 		doubleCheck:        false,
 		blockCheckSquaresB: 0,
+		fens:               []string{START_FEN},
 	}
 
 	whitePiecePosB := board.combinePositionsOf(whiteIds)
@@ -246,17 +249,25 @@ func (board *Board) getFen() string {
 	fen += isBlackInitial
 
 	fen += " "
+	castlingPossible := false
 	if board.white_castle_king {
+		castlingPossible = true
 		fen += "K"
 	}
 	if board.white_castle_queen {
+		castlingPossible = true
 		fen += "Q"
 	}
 	if board.black_castle_king {
+		castlingPossible = true
 		fen += "k"
 	}
 	if board.black_castle_queen {
+		castlingPossible = true
 		fen += "q"
+	}
+	if !castlingPossible {
+		fen += "-"
 	}
 	fen += " "
 	if board.en_passant_pos >= 0 {
@@ -273,6 +284,12 @@ func (board *Board) getFen() string {
 	fen += strconv.Itoa(board.nextMove)
 
 	return fen
+}
+
+func (board *Board) getFenWithoutMoves() string {
+	fen := board.getFen()
+	parts := strings.Split(fen, " ")
+	return strings.Join(parts[:len(parts)-2], " ")
 }
 
 func displayFen(fen string) string {
@@ -448,6 +465,18 @@ func (board *Board) checkGameEnded() (bool, string, string) {
 		}
 	}
 
+	// threefold repetition
+	currentFen := board.fens[len(board.fens)-1]
+	repCounter := 0
+	for _, fen := range board.fens {
+		if fen == currentFen {
+			repCounter++
+		}
+	}
+	if repCounter >= 3 {
+		return true, "draw", "Please imagine NEW moves... threefold repetition"
+	}
+
 	return false, "", ""
 }
 
@@ -467,7 +496,7 @@ func (board *Board) makeEngineMove() (Move, Move) {
 	case "checkCaptureRandom":
 		engineMove = board.checkCaptureEngineMove()
 	case "alphaBeta":
-		engineMove = board.alphaBetaEngineMove()
+		engineMove = board.AlphaBetaEngineMove()
 	}
 	// time.Sleep(time.Duration((rand.Intn(3) + 1)) * time.Second)
 	// time.Sleep(500 * time.Millisecond)

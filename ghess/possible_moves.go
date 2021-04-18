@@ -53,7 +53,7 @@ func (board *Board) getNumberOfMoves(startPly, ply int, isBlacksTurn bool) int {
 				for i := 0; i < padding; i++ {
 					fmt.Print(" ")
 				}
-				fmt.Println(getAlgebraicFromMove(&move))
+				fmt.Println(GetAlgebraicFromMove(&move))
 			*/
 			x := 0
 			for i := 0; i < numTinyMoves; i++ {
