@@ -127,7 +127,7 @@ func TestEngines(t *testing.T) {
 			move = board.checkCaptureEngineMove()
 		case "alphaBeta":
 			ab := board.AlphaBetaEngineMove([30]Move{}, 2, 30, false, true, MAX_ENGINE_TIME)
-			move = ab.pv[0]
+			move = ab.Pv[0]
 		}
 		algebraic := GetAlgebraicFromMove(&move)
 		found := false
