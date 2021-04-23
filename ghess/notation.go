@@ -46,11 +46,11 @@ func (board *Board) GetMoveFromLongAlgebraic(moveStr string) (Move, error) {
 	fromY := 8 - int(moveStr[1]-'0')
 	toX := int(moveStr[2] - 'a')
 	toY := 8 - int(moveStr[3]-'0')
-	pieceId := board.pos2PieceId[fromY*8+fromX]
-	if pieceId == 0 {
+	PieceId := board.pos2PieceId[fromY*8+fromX]
+	if PieceId == 0 {
 		return move, fmt.Errorf("there is no piece at that position")
 	}
-	if board.pieces[pieceId].isBlack != board.isBlacksTurn {
+	if board.pieces[PieceId].isBlack != board.IsBlacksTurn {
 		return move, fmt.Errorf("the piece has the wrong color")
 	}
 	promotionIdx := 0
@@ -68,7 +68,7 @@ func (board *Board) GetMoveFromLongAlgebraic(moveStr string) (Move, error) {
 			return Move{}, fmt.Errorf("last char must be q,r,b,n for a 5 character string")
 		}
 	}
-	move, _ = board.NewMove(pieceId, 0, toY*8+toX, promotionIdx)
+	move, _ = board.NewMove(PieceId, 0, toY*8+toX, promotionIdx)
 	if board.isLegal(&move) {
 		// capture will be filled automatically
 		return move, nil
@@ -92,7 +92,7 @@ func getPromotionStr(promote int) string {
 }
 
 func (board *Board) getBasicStandardAlgebraic(m *Move) string {
-	piece := board.pieces[m.pieceId]
+	piece := board.pieces[m.PieceId]
 	fromX, _ := xy(m.from)
 	toX, toY := xy(m.to)
 	endToStr := string(rune('a'+toX)) + strconv.Itoa(8-toY)
@@ -113,7 +113,7 @@ func (board *Board) getBasicStandardAlgebraic(m *Move) string {
 }
 
 func (board *Board) getDifferentFileStandardAlgebraic(m *Move) string {
-	piece := board.pieces[m.pieceId]
+	piece := board.pieces[m.PieceId]
 	fromX, _ := xy(m.from)
 	toX, toY := xy(m.to)
 	endToStr := string(rune('a'+toX)) + strconv.Itoa(8-toY)
@@ -130,7 +130,7 @@ func (board *Board) getDifferentFileStandardAlgebraic(m *Move) string {
 }
 
 func (board *Board) getDifferentRankStandardAlgebraic(m *Move) string {
-	piece := board.pieces[m.pieceId]
+	piece := board.pieces[m.PieceId]
 	_, fromY := xy(m.from)
 	toX, toY := xy(m.to)
 	endToStr := string(rune('a'+toX)) + strconv.Itoa(8-toY)
@@ -144,9 +144,9 @@ func (board *Board) getDifferentRankStandardAlgebraic(m *Move) string {
 
 func (board *Board) getStandardAlgebraicFromMove(m *Move) string {
 	ambiguityMoves := []Move{}
-	piece := board.pieces[m.pieceId]
+	piece := board.pieces[m.PieceId]
 	for _, move := range board.getPossibleMoves() {
-		if move.to == m.to && piece.pieceType == board.pieces[move.pieceId].pieceType && m.pieceId != move.pieceId {
+		if move.to == m.to && piece.pieceType == board.pieces[move.PieceId].pieceType && m.PieceId != move.PieceId {
 			ambiguityMoves = append(ambiguityMoves, move)
 		}
 	}

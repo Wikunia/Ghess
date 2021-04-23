@@ -1,6 +1,6 @@
 var socket = new WebSocket("ws://localhost:3000/ws")
 
-var pieceId = 0;
+var PieceId = 0;
 var captureId = 0;
 var to = 0;
 
@@ -19,7 +19,7 @@ socket.onmessage = function (event) {
         movePiece(jsonObj)
     } else if (jsonObj.requestType == "promotion") {
         let promotionDialog = document.getElementById("promotion");
-        pieceId = jsonObj.pieceId
+        PieceId = jsonObj.PieceId
         captureId = jsonObj.captureId
         to = jsonObj.to
         promotionDialog.showModal();
@@ -55,7 +55,7 @@ function showSurrounding(jsonObj) {
 }
   
 function movePiece(move) {
-    let piece = document.querySelector("#piece_"+move.pieceId);
+    let piece = document.querySelector("#piece_"+move.PieceId);
     if (move.captureId !== 0) {
         let capturedPiece = document.querySelector("#piece_"+move.captureId);
         capturedPiece.style.display = "none";
@@ -97,8 +97,8 @@ function onDragStart(event) {
       .setData('text/plain', event.target.id);
   
     // send click event first
-    let pieceId = parseInt(event.target.id.split("_")[1])
-    var data = JSON.stringify({"requestType": "movement", "pieceId": pieceId});
+    let PieceId = parseInt(event.target.id.split("_")[1])
+    var data = JSON.stringify({"requestType": "movement", "PieceId": PieceId});
     socket.send(data)
 
     event
@@ -123,61 +123,61 @@ function onDrop(event) {
       .dataTransfer
       .getData('text');
 
-    let pieceId = id.split("_")[1]
+    let PieceId = id.split("_")[1]
 
     let pieceOrField = event.target.id.split("_")[0]
     console.log("event.target.id: ", event.target.id)
 
     if (pieceOrField == "piece") {
-        sendCapturePiece(pieceId, event.target.id)
+        sendCapturePiece(PieceId, event.target.id)
     } else if (pieceOrField == "square") {
-        sendMovePiece(pieceId, event.target.id)
+        sendMovePiece(PieceId, event.target.id)
     }
 }
 
-function sendMovePiece(pieceId, toStr) {
+function sendMovePiece(PieceId, toStr) {
     let [_,to] = toStr.split("_")
-    console.log("move: ", pieceId, " -> ", to)
+    console.log("move: ", PieceId, " -> ", to)
 
-    var data = JSON.stringify({"requestType": "move", "pieceId": parseInt(pieceId), "to": parseInt(to)});
+    var data = JSON.stringify({"requestType": "move", "PieceId": parseInt(PieceId), "to": parseInt(to)});
     socket.send(data);
 }
 
-function sendCapturePiece(pieceId, toStr) {
+function sendCapturePiece(PieceId, toStr) {
     let [_,captureId] = toStr.split("_")
-    console.log("capture: ", pieceId, " -> ", captureId)
+    console.log("capture: ", PieceId, " -> ", captureId)
 
-    var data = JSON.stringify({"requestType": "capture", "pieceId": parseInt(pieceId), "captureId": parseInt(captureId)});
+    var data = JSON.stringify({"requestType": "capture", "PieceId": parseInt(PieceId), "captureId": parseInt(captureId)});
     socket.send(data);
 }
 
 function onClick(event) {
-    let pieceId = parseInt(event.target.id.split("_")[1])
-    var data = JSON.stringify({"requestType": "movement", "pieceId": pieceId});
+    let PieceId = parseInt(event.target.id.split("_")[1])
+    var data = JSON.stringify({"requestType": "movement", "PieceId": PieceId});
     socket.send(data)
 }
 
 let promotionQueen = document.getElementById("promotionQueen");
 promotionQueen.addEventListener('click', function() {
-    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "captureId": captureId,  "promote": 1});
+    var data = JSON.stringify({"requestType": "move", "PieceId": PieceId, "to": to, "captureId": captureId,  "promote": 1});
     socket.send(data);
 })
 
 let promotionRook = document.getElementById("promotionRook");
 promotionRook.addEventListener('click', function() {
-    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "captureId": captureId, "promote": 2});
+    var data = JSON.stringify({"requestType": "move", "PieceId": PieceId, "to": to, "captureId": captureId, "promote": 2});
     socket.send(data);
 })
 
 let promotionBishop = document.getElementById("promotionBishop");
 promotionBishop.addEventListener('click', function() {
-    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "captureId": captureId, "promote": 3});
+    var data = JSON.stringify({"requestType": "move", "PieceId": PieceId, "to": to, "captureId": captureId, "promote": 3});
     socket.send(data);
 })
 
 let promotionKnight = document.getElementById("promotionKnight");
 promotionKnight.addEventListener('click', function() {
-    var data = JSON.stringify({"requestType": "move", "pieceId": pieceId, "to": to, "captureId": captureId, "promote": 4});
+    var data = JSON.stringify({"requestType": "move", "PieceId": PieceId, "to": to, "captureId": captureId, "promote": 4});
     socket.send(data);
 })
 
