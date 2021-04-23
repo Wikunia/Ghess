@@ -47,7 +47,6 @@ func (board *Board) getBoardPrimitives() BoardPrimitives {
 		nextMove:           board.nextMove,
 		whiteKingId:        board.whiteKingId,
 		blackKingId:        board.blackKingId,
-		fens:               board.fens[:],
 	}
 }
 
@@ -62,7 +61,6 @@ func (board *Board) setBoardPrimitives(bp *BoardPrimitives) {
 	board.nextMove = bp.nextMove
 	board.whiteKingId = bp.whiteKingId
 	board.blackKingId = bp.blackKingId
-	board.fens = bp.fens[:]
 }
 
 func printBits(bits uint64) {

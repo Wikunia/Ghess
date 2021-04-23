@@ -126,8 +126,8 @@ func TestEngines(t *testing.T) {
 		case "checkCaptureRandom":
 			move = board.checkCaptureEngineMove()
 		case "alphaBeta":
-			moves := board.AlphaBetaEngineMove([30]Move{}, 2, 30, false, true, MAX_ENGINE_TIME)
-			move = moves[0]
+			ab := board.AlphaBetaEngineMove([30]Move{}, 2, 30, false, true, MAX_ENGINE_TIME)
+			move = ab.pv[0]
 		}
 		algebraic := GetAlgebraicFromMove(&move)
 		found := false
@@ -153,16 +153,6 @@ func TestStaticEvaluation(t *testing.T) {
 	}
 }
 
-func TestStaticEvaluation(t *testing.T) {
-	for _, test := range staticEvaluationTests {
-		board := GetBoardFromFen(test.fen)
-		score := board.staticEvaluation()
-		if score != test.expected {
-			t.Errorf("The score for %s should be %.2f but is %.2f", test.fen, test.expected, score)
-		}
-	}
-}
-
 func BenchmarkNumMove(b *testing.B) {
 	startFEN := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 	board := GetBoardFromFen(startFEN)
@@ -171,21 +161,12 @@ func BenchmarkNumMove(b *testing.B) {
 		board.GetNumberOfMoves(5)
 	}
 }
-
-func BenchmarkEvaluationStart3(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-		board.AlphaBetaEngineMove([30]Move{}, 2, 3, false, false, 200000)
-	}
-	// 61.32ms
-}
-
 func BenchmarkEvaluationStart4(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 		board.AlphaBetaEngineMove([30]Move{}, 2, 4, false, false, 200000)
 	}
-	// 363.8 ms
+	// 246.8 ms
 }
 
 func BenchmarkEvaluationStart5(b *testing.B) {
@@ -193,5 +174,5 @@ func BenchmarkEvaluationStart5(b *testing.B) {
 		board := GetBoardFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 		board.AlphaBetaEngineMove([30]Move{}, 2, 5, false, false, 200000)
 	}
-	// 6s
+	// 3.9s
 }

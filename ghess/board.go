@@ -477,7 +477,8 @@ func (board *Board) setKingMovement(piece *Piece, wasLastColor bool) {
 	}
 }
 
-// NewMove creates a move object given a PieceId, to and checks whether the move is a capture. If isCapture is set to true
+// NewMove creates a move object given a PieceId, to and checks whether the move is a capture. If isCapture is set to true.
+// Second return is whether we need to ask for promotion
 func (board *Board) NewMove(PieceId int, captureId int, to int, promote int) (Move, bool) {
 	needsPromotionType := false
 	from := board.pieces[PieceId].pos
@@ -579,14 +580,15 @@ func (board *Board) Move(m *Move) Move {
 	} else {
 		board.halfMoves = 0
 	}
-	board.fens = append(board.fens, board.GetFenWithoutMoves())
+	board.ply++
+	board.setHash()
 
 	board.IsBlacksTurn = !board.IsBlacksTurn
 	board.setMovement()
 	return rookMove
 }
 
-func (board *Board) reverseMove(m *Move, boardPrimitives *BoardPrimitives) {
+func (board *Board) reverseMove(m *Move, boardPrimitives *BoardPrimitives) Move {
 	revPromoteInto := 0
 	if m.promote != 0 {
 		revPromoteInto = -1 // reverse promote back into a pawn
@@ -634,6 +636,9 @@ func (board *Board) reverseMove(m *Move, boardPrimitives *BoardPrimitives) {
 	// resets castle and en passant rights which is important for setMovement
 	board.setBoardPrimitives(boardPrimitives)
 	board.setMovement()
+
+	board.ply--
+	return revMmove
 }
 
 func (board *Board) isLegal(m *Move) bool {

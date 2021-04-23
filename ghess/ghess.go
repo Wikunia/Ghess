@@ -41,7 +41,7 @@ const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 // Position 4
 // const START_FEN = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1"
 
-// const START_FEN = "8/7P/8/8/8/8/2K1k3/8 b  - 8 87"
+// const START_FEN = "8/1r5p/5kp1/4bp2/p7/4Q3/4PnPP/4K2R b - - 0 1"
 
 var materialCountMap = map[rune]int{
 	'k': 900,
@@ -70,6 +70,15 @@ func NewPiece(id int, pos int, pieceType rune, isBlack bool) Piece {
 	return Piece{id: id, pos: pos, posB: posB, pieceType: pieceType, isBlack: isBlack, movementB: 0, moves: moves, numMoves: 0, pinnedMoveB: math.MaxUint64}
 }
 
+var pieceMap = map[rune]int{
+	'p': 0,
+	'b': 1,
+	'n': 2,
+	'r': 3,
+	'q': 4,
+	'k': 5,
+}
+
 type Board struct {
 	pos2PieceId        [64]int
 	pieces             [33]Piece // piece with id 0 should point to empty piece
@@ -93,7 +102,9 @@ type Board struct {
 	check              bool
 	doubleCheck        bool
 	blockCheckSquaresB uint64
-	fens               []string
+	ply                int
+	posHashes          [500]uint64
+	zobristHashTable   [64][12]uint64
 }
 
 type BoardPrimitives struct {
@@ -107,7 +118,32 @@ type BoardPrimitives struct {
 	nextMove           int
 	whiteKingId        int
 	blackKingId        int
-	fens               []string
+}
+
+func getInitZobrist() [64][12]uint64 {
+	rand.Seed(time.Now().UnixNano())
+	zobristHashTable := [64][12]uint64{}
+	for i := 0; i < 64; i++ {
+		for p := 0; p < 6; p++ {
+			zobristHashTable[i][p] = rand.Uint64()
+		}
+	}
+	return zobristHashTable
+}
+
+func (board *Board) setHash() {
+	var h uint64 = 0
+	for i := 0; i < 64; i++ {
+		pi := board.pos2PieceId[i]
+		piece := board.pieces[pi]
+		blackAdd := 0
+		if piece.isBlack {
+			blackAdd = 6
+		}
+		j := pieceMap[piece.pieceType] + blackAdd
+		h = h ^ board.zobristHashTable[i][j]
+	}
+	board.posHashes[board.ply] = h
 }
 
 func NewBoard(pieces [33]Piece, whiteIds [16]int, blackIds [16]int, isBlack bool,
@@ -124,6 +160,7 @@ func NewBoard(pieces [33]Piece, whiteIds [16]int, blackIds [16]int, isBlack bool
 		}
 		pos2PieceId[piece.pos] = piece.id
 	}
+	zobristHashTable := getInitZobrist()
 	board := Board{
 		pos2PieceId:        pos2PieceId,
 		pieces:             pieces,
@@ -147,8 +184,12 @@ func NewBoard(pieces [33]Piece, whiteIds [16]int, blackIds [16]int, isBlack bool
 		check:              false,
 		doubleCheck:        false,
 		blockCheckSquaresB: 0,
-		fens:               []string{START_FEN},
+		ply:                1,
+		posHashes:          [500]uint64{},
+		zobristHashTable:   zobristHashTable,
 	}
+
+	board.setHash()
 
 	whitePiecePosB := board.combinePositionsOf(whiteIds)
 	blackPiecePosB := board.combinePositionsOf(blackIds)
@@ -466,10 +507,14 @@ func (board *Board) CheckGameEnded() (bool, string, string) {
 	}
 
 	// threefold repetition
-	currentFen := board.fens[len(board.fens)-1]
+	currentHash := board.posHashes[board.ply]
 	repCounter := 0
-	for _, fen := range board.fens {
-		if fen == currentFen {
+	start := 1
+	if board.IsBlacksTurn {
+		start = 2
+	}
+	for i := start; i <= board.ply; i += 2 {
+		if board.posHashes[i] == currentHash {
 			repCounter++
 		}
 	}
@@ -496,8 +541,8 @@ func (board *Board) makeEngineMove() (Move, Move) {
 	case "checkCaptureRandom":
 		engineMove = board.checkCaptureEngineMove()
 	case "alphaBeta":
-		engineMoves := board.AlphaBetaEngineMove([30]Move{}, 2, 30, false, true, MAX_ENGINE_TIME)
-		engineMove = engineMoves[0]
+		ab := board.AlphaBetaEngineMove([30]Move{}, 2, 30, false, true, MAX_ENGINE_TIME)
+		engineMove = ab.Pv[0]
 	}
 	// time.Sleep(time.Duration((rand.Intn(3) + 1)) * time.Second)
 	// time.Sleep(500 * time.Millisecond)
@@ -595,6 +640,20 @@ func Run() {
 		rookMove := Move{}
 		isMove := false
 		playedMoves := []Move{}
+
+		/*
+			time.Sleep(5 * time.Second)
+			for _, move := range board.getPossibleMoves() {
+				boardPrimitives := board.getBoardPrimitives()
+				board.Move(&move)
+				c.WriteJSON(JSONRequest{RequestType: "move", PieceId: move.PieceId, CaptureId: move.captureId, To: move.to, Promote: move.promote})
+				time.Sleep(500 * time.Millisecond)
+				revMove := board.reverseMove(&move, &boardPrimitives)
+				c.WriteJSON(JSONRequest{RequestType: "move", PieceId: revMove.PieceId, CaptureId: revMove.captureId, To: revMove.to, Promote: revMove.promote})
+			}
+			return
+		*/
+
 		for {
 			fmt.Println(board.GetFen())
 			ended, _, msg := board.CheckGameEnded()

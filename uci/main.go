@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/Wikunia/Ghess/ghess"
@@ -24,6 +25,7 @@ var startPv = [30]ghess.Move{}
 var currentlyPondering = false
 var madeMoves = []ghess.Move{}
 var ponderingMove = ""
+var maxThinkingTime = 0
 
 func main() {
 	go func() {
@@ -71,6 +73,10 @@ func runCommand(in string) bool {
 		handlePosition(in)
 	case "go":
 		handleGo(in)
+	case "stop":
+		handleStop()
+	case "ponderhit":
+		handlePonderHit(in)
 	case "quit":
 		return false
 	}
@@ -99,7 +105,6 @@ func handlePosition(in string) {
 		board = ghess.GetBoardFromFen(currentFEN)
 		if len(commands) > 8 {
 			if commands[8] == "moves" {
-				fmt.Println("commands[9:]: ", commands[9:])
 				makeMoves(commands[9:])
 			}
 		}
@@ -120,50 +125,115 @@ func makeMoves(moves []string) {
 	}
 }
 
-func handleGo(in string) {
+func handleStop() {
 	if currentlyPondering {
+		if startPv[0].PieceId != 0 {
+			fmt.Printf("bestmove %s\n", ghess.GetAlgebraicFromMove(&startPv[0]))
+		} else {
+			// not sure whether there is a bestmove expected
+			fmt.Println("bestmove a8a8")
+		}
 		stopPondering <- true
+		currentlyPondering = false
+	} else {
+		// not sure whether there is a bestmove expected
+		fmt.Println("bestmove a8a8")
 	}
+}
+
+func handleGo(in string) {
+	parts := strings.Split(in, " ")
+	if parts[1] == "ponder" {
+		handleGoPonder(in)
+		return
+	}
+	// default 4s*40
+	wtime := 40 * 4000
+	btime := 40 * 4000
+	winc := 0
+	binc := 0
+	for i := 0; i < len(parts); i++ {
+		if parts[i] == "wtime" {
+			wtime, _ = strconv.Atoi(parts[i+1])
+		}
+		if parts[i] == "btime" {
+			btime, _ = strconv.Atoi(parts[i+1])
+		}
+		if parts[i] == "winc" {
+			winc, _ = strconv.Atoi(parts[i+1])
+		}
+		if parts[i] == "binc" {
+			binc, _ = strconv.Atoi(parts[i+1])
+		}
+	}
+	if board.IsBlacksTurn {
+		maxThinkingTime = btime/40 + binc
+	} else {
+		maxThinkingTime = wtime/40 + winc
+	}
+
 	ready := <-isready
 	fmt.Println("ready: ", ready)
 	depth := 2
-	lastMove := ""
-	if len(madeMoves) > 0 {
-		lastMove = ghess.GetAlgebraicFromMove(&madeMoves[len(madeMoves)-1])
-	}
-	completedOnce := false
-	if len(madeMoves) > 0 && lastMove == ponderingMove {
-		for i := 0; i < 30; i++ {
-			if startPv[i].PieceId != 0 {
-				depth = i + 2
-			}
-		}
-		if depth < 2 {
-			depth = 2
-		}
-		fmt.Println("Used pondering")
-		completedOnce = true
-	} else {
-		startPv = [30]ghess.Move{}
-	}
+	startPv = [30]ghess.Move{}
 
 	fmt.Println("run with depth: ", depth)
-	pv := board.AlphaBetaEngineMove(startPv, depth, 30, completedOnce, true, ghess.MAX_ENGINE_TIME)
-	fmt.Printf("bestmove %s\n", ghess.GetAlgebraicFromMove(&pv[0]))
-	ponderingMove = ghess.GetAlgebraicFromMove(&pv[1])
+	ab := board.AlphaBetaEngineMove(startPv, depth, 30, false, true, maxThinkingTime)
+	pv := ab.Pv
+	if pv[1].PieceId != 0 {
+		currentlyPondering = true
+		ponderingMove = ghess.GetAlgebraicFromMove(&pv[1])
+		fmt.Printf("bestmove %s ponder %s\n", ghess.GetAlgebraicFromMove(&pv[0]), ponderingMove)
+	} else {
+		fmt.Printf("bestmove %s\n", ghess.GetAlgebraicFromMove(&pv[0]))
+		currentlyPondering = false
+		go func() {
+			isready <- true
+		}()
+	}
+}
 
+func handleGoPonder(in string) {
 	copiedBoard := ghess.GetBoardFromFen(currentFEN)
 	for _, move := range madeMoves {
 		copiedBoard.Move(&move)
 	}
-	copiedBoard.Move(&pv[0])
-	if pv[1].PieceId != 0 {
-		copiedBoard.Move(&pv[1])
-		ended, _, _ := copiedBoard.CheckGameEnded()
-		if !ended {
-			currentlyPondering = true
-			stopPondering = make(chan bool)
-			go copiedBoard.AlphaBetaEnginePonder(stopPondering, isready, currentBestPv)
+	ended, _, _ := copiedBoard.CheckGameEnded()
+	if !ended {
+		stopPondering = make(chan bool)
+		go copiedBoard.AlphaBetaEnginePonder(stopPondering, isready, currentBestPv)
+	} else {
+		currentlyPondering = false
+		go func() {
+			isready <- true
+		}()
+	}
+}
+
+func handlePonderHit(in string) {
+	if currentlyPondering {
+		stopPondering <- true
+		currentlyPondering = false
+	}
+	ready := <-isready
+	fmt.Println("ready: ", ready)
+
+	depth := 2
+	for i := 0; i < 30; i++ {
+		if startPv[i].PieceId != 0 {
+			depth = i + 2
 		}
+	}
+	if depth < 2 {
+		depth = 2
+	}
+	fmt.Println("Used pondering")
+	ab := board.AlphaBetaEngineMove(startPv, depth, 30, true, true, maxThinkingTime)
+	pv := ab.Pv
+	if pv[1].PieceId != 0 {
+		ponderingMove = ghess.GetAlgebraicFromMove(&pv[1])
+		fmt.Printf("bestmove %s ponder %s\n", ghess.GetAlgebraicFromMove(&pv[0]), ponderingMove)
+	} else {
+		fmt.Printf("bestmove %s\n", ghess.GetAlgebraicFromMove(&pv[0]))
 	}
 }
