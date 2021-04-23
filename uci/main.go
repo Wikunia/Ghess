@@ -118,7 +118,7 @@ func makeMoves(moves []string) {
 	for _, moveStr := range moves {
 		move, err := board.GetMoveFromLongAlgebraic(moveStr)
 		if err != nil {
-			fmt.Println("ERROR: ", err)
+			fmt.Println("ERROR for move ", moveStr, " ", err)
 		}
 		board.Move(&move)
 		madeMoves = append(madeMoves, move)
@@ -127,14 +127,21 @@ func makeMoves(moves []string) {
 
 func handleStop() {
 	if currentlyPondering {
+		stopPondering <- true
+		currentlyPondering = false
+		// wait until pondering stopped
+		ready := <-isready
+		if ready {
+			go func() {
+				isready <- true
+			}()
+		}
 		if startPv[0].PieceId != 0 {
 			fmt.Printf("bestmove %s\n", ghess.GetAlgebraicFromMove(&startPv[0]))
 		} else {
 			// not sure whether there is a bestmove expected
-			fmt.Println("bestmove a8a8")
+			fmt.Println("bestmove h8h8")
 		}
-		stopPondering <- true
-		currentlyPondering = false
 	} else {
 		// not sure whether there is a bestmove expected
 		fmt.Println("bestmove a8a8")
@@ -194,14 +201,11 @@ func handleGo(in string) {
 }
 
 func handleGoPonder(in string) {
-	copiedBoard := ghess.GetBoardFromFen(currentFEN)
-	for _, move := range madeMoves {
-		copiedBoard.Move(&move)
-	}
-	ended, _, _ := copiedBoard.CheckGameEnded()
+	ended, _, _ := board.CheckGameEnded()
 	if !ended {
+		currentlyPondering = true
 		stopPondering = make(chan bool)
-		go copiedBoard.AlphaBetaEnginePonder(stopPondering, isready, currentBestPv)
+		go board.AlphaBetaEnginePonder(stopPondering, isready, currentBestPv)
 	} else {
 		currentlyPondering = false
 		go func() {
@@ -217,6 +221,11 @@ func handlePonderHit(in string) {
 	}
 	ready := <-isready
 	fmt.Println("ready: ", ready)
+	currentFEN = START_FEN
+	board = ghess.GetBoardFromFen(START_FEN)
+	for _, move := range madeMoves {
+		board.Move(&move)
+	}
 
 	depth := 2
 	for i := 0; i < 30; i++ {
