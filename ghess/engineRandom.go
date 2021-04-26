@@ -7,18 +7,18 @@ import (
 func (board *Board) randomEngineMove() Move {
 	possibleMoves := []Move{}
 	n := 0
-	var pieceIds [16]int
-	if board.isBlacksTurn {
-		pieceIds = board.blackIds
+	var PieceIds [16]int
+	if board.IsBlacksTurn {
+		PieceIds = board.blackIds
 	} else {
-		pieceIds = board.whiteIds
+		PieceIds = board.whiteIds
 	}
-	for _, pieceId := range pieceIds {
-		moves := board.pieces[pieceId].moves
-		numMoves := board.pieces[pieceId].numMoves
+	for _, PieceId := range PieceIds {
+		moves := board.pieces[PieceId].moves
+		numMoves := board.pieces[PieceId].numMoves
 		for mId := 0; mId < numMoves; mId++ {
 			numTinyMoves := 1
-			_, isPromotion := board.NewMove(pieceId, 0, moves[mId], 0)
+			_, isPromotion := board.NewMove(PieceId, 0, moves[mId], 0)
 			if isPromotion {
 				numTinyMoves = 4
 			}
@@ -27,7 +27,7 @@ func (board *Board) randomEngineMove() Move {
 				if isPromotion {
 					x++
 				}
-				move, _ := board.NewMove(pieceId, 0, moves[mId], x)
+				move, _ := board.NewMove(PieceId, 0, moves[mId], x)
 				possibleMoves = append(possibleMoves, move)
 				n++
 			}

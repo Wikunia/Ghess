@@ -41,7 +41,7 @@ const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 // Position 4
 // const START_FEN = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1"
 
-// const START_FEN = "8/7P/8/8/8/8/2K1k3/8 b  - 8 87"
+// const START_FEN = "8/1r5p/5kp1/4bp2/p7/4Q3/4PnPP/4K2R b - - 0 1"
 
 var materialCountMap = map[rune]int{
 	'k': 900,
@@ -70,6 +70,15 @@ func NewPiece(id int, pos int, pieceType rune, isBlack bool) Piece {
 	return Piece{id: id, pos: pos, posB: posB, pieceType: pieceType, isBlack: isBlack, movementB: 0, moves: moves, numMoves: 0, pinnedMoveB: math.MaxUint64}
 }
 
+var pieceMap = map[rune]int{
+	'p': 0,
+	'b': 1,
+	'n': 2,
+	'r': 3,
+	'q': 4,
+	'k': 5,
+}
+
 type Board struct {
 	pos2PieceId        [64]int
 	pieces             [33]Piece // piece with id 0 should point to empty piece
@@ -79,7 +88,7 @@ type Board struct {
 	blackIds           [16]int // list all black piece ids
 	blackPiecePosB     uint64  // the | operator applied to all blackPieces
 	blackPieceMovB     uint64
-	isBlacksTurn       bool
+	IsBlacksTurn       bool
 	white_castle_king  bool
 	white_castle_queen bool
 	black_castle_king  bool
@@ -93,11 +102,13 @@ type Board struct {
 	check              bool
 	doubleCheck        bool
 	blockCheckSquaresB uint64
-	fens               []string
+	ply                int
+	posHashes          [500]uint64
+	zobristHashTable   [64][12]uint64
 }
 
 type BoardPrimitives struct {
-	isBlacksTurn       bool
+	IsBlacksTurn       bool
 	white_castle_king  bool
 	white_castle_queen bool
 	black_castle_king  bool
@@ -107,7 +118,32 @@ type BoardPrimitives struct {
 	nextMove           int
 	whiteKingId        int
 	blackKingId        int
-	fens               []string
+}
+
+func getInitZobrist() [64][12]uint64 {
+	rand.Seed(time.Now().UnixNano())
+	zobristHashTable := [64][12]uint64{}
+	for i := 0; i < 64; i++ {
+		for p := 0; p < 6; p++ {
+			zobristHashTable[i][p] = rand.Uint64()
+		}
+	}
+	return zobristHashTable
+}
+
+func (board *Board) setHash() {
+	var h uint64 = 0
+	for i := 0; i < 64; i++ {
+		pi := board.pos2PieceId[i]
+		piece := board.pieces[pi]
+		blackAdd := 0
+		if piece.isBlack {
+			blackAdd = 6
+		}
+		j := pieceMap[piece.pieceType] + blackAdd
+		h = h ^ board.zobristHashTable[i][j]
+	}
+	board.posHashes[board.ply] = h
 }
 
 func NewBoard(pieces [33]Piece, whiteIds [16]int, blackIds [16]int, isBlack bool,
@@ -124,6 +160,7 @@ func NewBoard(pieces [33]Piece, whiteIds [16]int, blackIds [16]int, isBlack bool
 		}
 		pos2PieceId[piece.pos] = piece.id
 	}
+	zobristHashTable := getInitZobrist()
 	board := Board{
 		pos2PieceId:        pos2PieceId,
 		pieces:             pieces,
@@ -133,7 +170,7 @@ func NewBoard(pieces [33]Piece, whiteIds [16]int, blackIds [16]int, isBlack bool
 		blackIds:           blackIds,
 		blackPiecePosB:     0,
 		blackPieceMovB:     0,
-		isBlacksTurn:       isBlack,
+		IsBlacksTurn:       isBlack,
 		white_castle_king:  white_castle_king,
 		white_castle_queen: white_castle_queen,
 		black_castle_king:  black_castle_king,
@@ -147,8 +184,12 @@ func NewBoard(pieces [33]Piece, whiteIds [16]int, blackIds [16]int, isBlack bool
 		check:              false,
 		doubleCheck:        false,
 		blockCheckSquaresB: 0,
-		fens:               []string{START_FEN},
+		ply:                1,
+		posHashes:          [500]uint64{},
+		zobristHashTable:   zobristHashTable,
 	}
+
+	board.setHash()
 
 	whitePiecePosB := board.combinePositionsOf(whiteIds)
 	blackPiecePosB := board.combinePositionsOf(blackIds)
@@ -159,7 +200,7 @@ func NewBoard(pieces [33]Piece, whiteIds [16]int, blackIds [16]int, isBlack bool
 }
 
 type Move struct {
-	pieceId   int
+	PieceId   int
 	captureId int
 	from      int
 	to        int
@@ -168,7 +209,7 @@ type Move struct {
 
 type JSONRequest struct {
 	RequestType string `json:"requestType"`
-	PieceId     int    `json:"pieceId"`
+	PieceId     int    `json:"PieceId"`
 	CaptureId   int    `json:"captureId"`
 	To          int    `json:"to"`
 	Promote     int    `json:"promote"` // 0 -> no promotion, 1 -> queen, 2 -> rook, 3 -> bishop, 4 -> knight
@@ -209,24 +250,24 @@ func getPieceName(piece *Piece) string {
 	return "NONAME"
 }
 
-func (board *Board) getFen() string {
+func (board *Board) GetFen() string {
 	fen := ""
 	n := 0
-	pieceId := 0
+	PieceId := 0
 	for y := 0; y < 8; y++ {
 		n = 0
 		for x := 0; x < 8; x++ {
 			p := y*8 + x
-			pieceId = board.pos2PieceId[p]
-			if pieceId == 0 {
+			PieceId = board.pos2PieceId[p]
+			if PieceId == 0 {
 				n += 1
 			} else {
 				if n != 0 {
 					fen += strconv.Itoa(n)
 					n = 0
 				}
-				pieceType := board.pieces[pieceId].pieceType
-				if !board.pieces[pieceId].isBlack {
+				pieceType := board.pieces[PieceId].pieceType
+				if !board.pieces[PieceId].isBlack {
 					fen += string(unicode.ToUpper(pieceType))
 				} else {
 					fen += string(pieceType)
@@ -243,7 +284,7 @@ func (board *Board) getFen() string {
 
 	fen += " "
 	isBlackInitial := "w"
-	if board.isBlacksTurn {
+	if board.IsBlacksTurn {
 		isBlackInitial = "b"
 	}
 	fen += isBlackInitial
@@ -286,8 +327,8 @@ func (board *Board) getFen() string {
 	return fen
 }
 
-func (board *Board) getFenWithoutMoves() string {
-	fen := board.getFen()
+func (board *Board) GetFenWithoutMoves() string {
+	fen := board.GetFen()
 	parts := strings.Split(fen, " ")
 	return strings.Join(parts[:len(parts)-2], " ")
 }
@@ -299,17 +340,17 @@ func displayFen(fen string) string {
 
 func (board *Board) display() string {
 	result := displayGround()
-	for pieceId, piece := range board.pieces {
+	for PieceId, piece := range board.pieces {
 		if piece.posB == 0 {
 			continue
 		}
-		pieceName := getPieceName(&board.pieces[pieceId])
+		pieceName := getPieceName(&board.pieces[PieceId])
 		position := piece.pos
 		x, y := xy(position)
 		left := strconv.Itoa(x * 10)
 		top := strconv.Itoa(y * 10)
 		result += `<div class="piece" draggable="true" onclick="onClick(event);" ondragstart="onDragStart(event);" ondragend="onDragEnd(event);" ondrop="onDrop(event);" ondragover="onDragOver(event);">
-				<img id="piece_` + strconv.Itoa(pieceId) + `" src="images/` + pieceName + `.png" style="left: ` + left + `vmin; top: ` + top + `vmin;"/>
+				<img id="piece_` + strconv.Itoa(PieceId) + `" src="images/` + pieceName + `.png" style="left: ` + left + `vmin; top: ` + top + `vmin;"/>
 			</div>`
 	}
 	return result
@@ -339,7 +380,7 @@ func GetBoardFromFen(fen string) Board {
 	fen_pieces := parts[0]
 	rows := strings.Split(fen_pieces, "/")
 	var pieces [33]Piece
-	pieceId := 1
+	PieceId := 1
 	whiteKingId := 0
 	blackKingId := 0
 	var blackIds [16]int
@@ -352,21 +393,21 @@ func GetBoardFromFen(fen string) Board {
 		for _, p := range row {
 			if (p > 'a' && p < 'z') || (p > 'A' && p < 'Z') {
 				isBlack := p == unicode.ToLower(p)
-				pieces[pieceId] = NewPiece(pieceId, cpos+r*8, unicode.ToLower(p), isBlack)
+				pieces[PieceId] = NewPiece(PieceId, cpos+r*8, unicode.ToLower(p), isBlack)
 				if isBlack {
-					blackIds[numBlack] = pieceId
+					blackIds[numBlack] = PieceId
 					numBlack++
 				} else {
-					whiteIds[numWhite] = pieceId
+					whiteIds[numWhite] = PieceId
 					numWhite++
 				}
 				if p == 'K' {
-					whiteKingId = pieceId
+					whiteKingId = PieceId
 				}
 				if p == 'k' {
-					blackKingId = pieceId
+					blackKingId = PieceId
 				}
-				pieceId += 1
+				PieceId += 1
 				cpos += 1
 			} else {
 				n, _ := strconv.Atoi(string(p))
@@ -407,12 +448,12 @@ func GetBoardFromFen(fen string) Board {
 	return board
 }
 
-func (board *Board) checkGameEnded() (bool, string, string) {
+func (board *Board) CheckGameEnded() (bool, string, string) {
 	numMoves := board.GetNumberOfMoves(1)
 	if numMoves == 0 {
 		if board.check {
 			msg := "Checkmate!<br>Good job "
-			if board.isBlacksTurn {
+			if board.IsBlacksTurn {
 				msg += "White!"
 			} else {
 				msg += "Black!"
@@ -430,8 +471,8 @@ func (board *Board) checkGameEnded() (bool, string, string) {
 	hasEnoughMaterial := false
 	numBishop := 0
 	numKnight := 0
-	for _, pieceId := range board.whiteIds {
-		piece := board.pieces[pieceId]
+	for _, PieceId := range board.whiteIds {
+		piece := board.pieces[PieceId]
 		if piece.posB != 0 {
 			if piece.pieceType == PAWN || piece.pieceType == ROOK || piece.pieceType == QUEEN {
 				hasEnoughMaterial = true
@@ -447,8 +488,8 @@ func (board *Board) checkGameEnded() (bool, string, string) {
 		hasEnoughMaterial = false
 		numBishop := 0
 		numKnight := 0
-		for _, pieceId := range board.blackIds {
-			piece := board.pieces[pieceId]
+		for _, PieceId := range board.blackIds {
+			piece := board.pieces[PieceId]
 			if piece.posB != 0 {
 				if piece.pieceType == PAWN || piece.pieceType == ROOK || piece.pieceType == QUEEN {
 					hasEnoughMaterial = true
@@ -466,10 +507,14 @@ func (board *Board) checkGameEnded() (bool, string, string) {
 	}
 
 	// threefold repetition
-	currentFen := board.fens[len(board.fens)-1]
+	currentHash := board.posHashes[board.ply]
 	repCounter := 0
-	for _, fen := range board.fens {
-		if fen == currentFen {
+	start := 1
+	if board.IsBlacksTurn {
+		start = 2
+	}
+	for i := start; i <= board.ply; i += 2 {
+		if board.posHashes[i] == currentHash {
 			repCounter++
 		}
 	}
@@ -484,7 +529,7 @@ func (board *Board) makeEngineMove() (Move, Move) {
 	rand.Seed(time.Now().UnixNano())
 	engineMove := Move{}
 	engine := ENGINE1
-	if board.isBlacksTurn {
+	if board.IsBlacksTurn {
 		engine = ENGINE2
 	}
 
@@ -496,7 +541,8 @@ func (board *Board) makeEngineMove() (Move, Move) {
 	case "checkCaptureRandom":
 		engineMove = board.checkCaptureEngineMove()
 	case "alphaBeta":
-		engineMove = board.AlphaBetaEngineMove()
+		ab := board.AlphaBetaEngineMove([30]Move{}, 2, 30, false, true, MAX_ENGINE_TIME)
+		engineMove = ab.Pv[0]
 	}
 	// time.Sleep(time.Duration((rand.Intn(3) + 1)) * time.Second)
 	// time.Sleep(500 * time.Millisecond)
@@ -557,7 +603,7 @@ func Run() {
 
 	// board.GetNumberOfMoves(2)
 	// fmt.Println("white castle king: ", board.white_castle_king)
-	// fmt.Println("isBlacksTurn: ", board.isBlacksTurn)
+	// fmt.Println("IsBlacksTurn: ", board.IsBlacksTurn)
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		// Render index
@@ -594,9 +640,23 @@ func Run() {
 		rookMove := Move{}
 		isMove := false
 		playedMoves := []Move{}
+
+		/*
+			time.Sleep(5 * time.Second)
+			for _, move := range board.getPossibleMoves() {
+				boardPrimitives := board.getBoardPrimitives()
+				board.Move(&move)
+				c.WriteJSON(JSONRequest{RequestType: "move", PieceId: move.PieceId, CaptureId: move.captureId, To: move.to, Promote: move.promote})
+				time.Sleep(500 * time.Millisecond)
+				revMove := board.reverseMove(&move, &boardPrimitives)
+				c.WriteJSON(JSONRequest{RequestType: "move", PieceId: revMove.PieceId, CaptureId: revMove.captureId, To: revMove.to, Promote: revMove.promote})
+			}
+			return
+		*/
+
 		for {
-			fmt.Println(board.getFen())
-			ended, _, msg := board.checkGameEnded()
+			fmt.Println(board.GetFen())
+			ended, _, msg := board.CheckGameEnded()
 			if ended {
 				writePGNFile(playedMoves)
 				err = c.WriteJSON(JSONEnd{RequestType: "end", Msg: msg})
@@ -629,7 +689,7 @@ func Run() {
 				move, rookMove = board.makeEngineMove()
 				isMove = true
 			} else if GAME_MODE == "human_vs_engine" {
-				if board.isBlacksTurn {
+				if board.IsBlacksTurn {
 					move, rookMove = board.makeEngineMove()
 					isMove = true
 				} else {
@@ -640,13 +700,13 @@ func Run() {
 			}
 			if isMove {
 				playedMoves = append(playedMoves, move)
-				err = c.WriteJSON(JSONRequest{RequestType: "move", PieceId: move.pieceId, CaptureId: move.captureId, To: move.to, Promote: move.promote})
+				err = c.WriteJSON(JSONRequest{RequestType: "move", PieceId: move.PieceId, CaptureId: move.captureId, To: move.to, Promote: move.promote})
 				if err != nil {
 					log.Println("write:", err)
 					break
 				}
-				if rookMove.pieceId != 0 {
-					err = c.WriteJSON(JSONRequest{RequestType: "move", PieceId: rookMove.pieceId, CaptureId: 0, To: rookMove.to})
+				if rookMove.PieceId != 0 {
+					err = c.WriteJSON(JSONRequest{RequestType: "move", PieceId: rookMove.PieceId, CaptureId: 0, To: rookMove.to})
 					if err != nil {
 						log.Println("rookMove write:", err)
 						break

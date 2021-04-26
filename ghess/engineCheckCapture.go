@@ -13,19 +13,19 @@ func (board *Board) checkCaptureEngineMove() Move {
 	n := 0
 	nCaptures := 0
 	nCheck := 0
-	var pieceIds [16]int
-	if board.isBlacksTurn {
-		pieceIds = board.blackIds
+	var PieceIds [16]int
+	if board.IsBlacksTurn {
+		PieceIds = board.blackIds
 	} else {
-		pieceIds = board.whiteIds
+		PieceIds = board.whiteIds
 	}
-	myColor := board.isBlacksTurn
-	for _, pieceId := range pieceIds {
-		moves := board.pieces[pieceId].moves
-		numMoves := board.pieces[pieceId].numMoves
+	myColor := board.IsBlacksTurn
+	for _, PieceId := range PieceIds {
+		moves := board.pieces[PieceId].moves
+		numMoves := board.pieces[PieceId].numMoves
 		for mId := 0; mId < numMoves; mId++ {
 			numTinyMoves := 1
-			_, isPromotion := board.NewMove(pieceId, 0, moves[mId], 0)
+			_, isPromotion := board.NewMove(PieceId, 0, moves[mId], 0)
 			if isPromotion {
 				numTinyMoves = 4
 			}
@@ -34,11 +34,11 @@ func (board *Board) checkCaptureEngineMove() Move {
 				if isPromotion {
 					x++
 				}
-				move, _ := board.NewMove(pieceId, 0, moves[mId], x)
+				move, _ := board.NewMove(PieceId, 0, moves[mId], x)
 				boardPrimitives := board.getBoardPrimitives()
 				board.Move(&move)
 				if board.check {
-					if !board.oppositeHasVisionOn(&board.pieces[pieceId], move.to) || board.doubleCheck {
+					if !board.oppositeHasVisionOn(&board.pieces[PieceId], move.to) || board.doubleCheck {
 						checkMoves = append(checkMoves, move)
 						nCheck++
 					} else if move.captureId == 0 {

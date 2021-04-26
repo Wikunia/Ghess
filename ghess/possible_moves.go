@@ -3,18 +3,18 @@ package ghess
 func (board *Board) getPossibleMoves() []Move {
 	var possibleMoves []Move
 
-	var pieceIds [16]int
-	if board.isBlacksTurn {
-		pieceIds = board.blackIds
+	var PieceIds [16]int
+	if board.IsBlacksTurn {
+		PieceIds = board.blackIds
 	} else {
-		pieceIds = board.whiteIds
+		PieceIds = board.whiteIds
 	}
-	for _, pieceId := range pieceIds {
-		moves := board.pieces[pieceId].moves
-		numMoves := board.pieces[pieceId].numMoves
+	for _, PieceId := range PieceIds {
+		moves := board.pieces[PieceId].moves
+		numMoves := board.pieces[PieceId].numMoves
 		for mId := 0; mId < numMoves; mId++ {
 			numTinyMoves := 1
-			_, isPromotion := board.NewMove(pieceId, 0, moves[mId], 0)
+			_, isPromotion := board.NewMove(PieceId, 0, moves[mId], 0)
 			if isPromotion {
 				numTinyMoves = 4
 			}
@@ -23,7 +23,7 @@ func (board *Board) getPossibleMoves() []Move {
 				if isPromotion {
 					x++
 				}
-				move, _ := board.NewMove(pieceId, 0, moves[mId], x)
+				move, _ := board.NewMove(PieceId, 0, moves[mId], x)
 				possibleMoves = append(possibleMoves, move)
 			}
 		}
@@ -31,20 +31,20 @@ func (board *Board) getPossibleMoves() []Move {
 	return possibleMoves
 }
 
-func (board *Board) getNumberOfMoves(startPly, ply int, isBlacksTurn bool) int {
+func (board *Board) getNumberOfMoves(startPly, ply int, IsBlacksTurn bool) int {
 	n := 0
-	var pieceIds [16]int
-	if isBlacksTurn {
-		pieceIds = board.blackIds
+	var PieceIds [16]int
+	if IsBlacksTurn {
+		PieceIds = board.blackIds
 	} else {
-		pieceIds = board.whiteIds
+		PieceIds = board.whiteIds
 	}
-	for _, pieceId := range pieceIds {
-		moves := board.pieces[pieceId].moves
-		numMoves := board.pieces[pieceId].numMoves
+	for _, PieceId := range PieceIds {
+		moves := board.pieces[PieceId].moves
+		numMoves := board.pieces[PieceId].numMoves
 		for mId := 0; mId < numMoves; mId++ {
 			numTinyMoves := 1
-			_, isPromotion := board.NewMove(pieceId, 0, moves[mId], 0)
+			_, isPromotion := board.NewMove(PieceId, 0, moves[mId], 0)
 			if isPromotion {
 				numTinyMoves = 4
 			}
@@ -64,10 +64,10 @@ func (board *Board) getNumberOfMoves(startPly, ply int, isBlacksTurn bool) int {
 				if isPromotion {
 					x++
 				}
-				move, _ := board.NewMove(pieceId, 0, moves[mId], x)
+				move, _ := board.NewMove(PieceId, 0, moves[mId], x)
 				boardPrimitives := board.getBoardPrimitives()
 				board.Move(&move)
-				n += board.getNumberOfMoves(startPly, ply-1, !isBlacksTurn)
+				n += board.getNumberOfMoves(startPly, ply-1, !IsBlacksTurn)
 				board.reverseMove(&move, &boardPrimitives)
 			}
 		}
@@ -76,5 +76,5 @@ func (board *Board) getNumberOfMoves(startPly, ply int, isBlacksTurn bool) int {
 }
 
 func (board *Board) GetNumberOfMoves(ply int) int {
-	return board.getNumberOfMoves(ply, ply, board.isBlacksTurn)
+	return board.getNumberOfMoves(ply, ply, board.IsBlacksTurn)
 }

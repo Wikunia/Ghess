@@ -88,19 +88,19 @@ func (board *Board) oppositeColoredPieceOn(piece *Piece, pos int) bool {
 }
 
 // combinePositionsOf combies the positions of all specified pieces and outputs the combined positions as uint64
-func (board *Board) combinePositionsOf(pieceIds [16]int) uint64 {
+func (board *Board) combinePositionsOf(PieceIds [16]int) uint64 {
 	var posB uint64
-	for _, pieceId := range pieceIds {
-		posB |= board.pieces[pieceId].posB
+	for _, PieceId := range PieceIds {
+		posB |= board.pieces[PieceId].posB
 	}
 	return posB
 }
 
 // combineMovementsOf combies the movements of all specified pieces and outputs the combined movements as uint64
-func (board *Board) combineMovementsOf(pieceIds *[16]int) uint64 {
+func (board *Board) combineMovementsOf(PieceIds *[16]int) uint64 {
 	var posB uint64
-	for _, pieceId := range pieceIds {
-		posB |= board.pieces[pieceId].movementB
+	for _, PieceId := range PieceIds {
+		posB |= board.pieces[PieceId].movementB
 	}
 	return posB
 }
@@ -109,15 +109,15 @@ func (board *Board) combineMovementsOf(pieceIds *[16]int) uint64 {
 func (board *Board) setMovement() {
 	// set movement for the color that just moved before setting movement for pieces that can move next
 	// this helps with checking the movement of pieces due to check
-	lastColor := !board.isBlacksTurn
-	pieceIds := make([]int, 32)
+	lastColor := !board.IsBlacksTurn
+	PieceIds := make([]int, 32)
 	// last was white
 	if !lastColor {
-		copy(pieceIds[:16], board.whiteIds[:])
-		copy(pieceIds[16:], board.blackIds[:])
+		copy(PieceIds[:16], board.whiteIds[:])
+		copy(PieceIds[16:], board.blackIds[:])
 	} else {
-		copy(pieceIds[:16], board.blackIds[:])
-		copy(pieceIds[16:], board.whiteIds[:])
+		copy(PieceIds[:16], board.blackIds[:])
+		copy(PieceIds[16:], board.whiteIds[:])
 	}
 
 	// for the color that last moved we allow them to capture their own pieces
@@ -128,9 +128,9 @@ func (board *Board) setMovement() {
 	board.doubleCheck = false
 	board.blockCheckSquaresB = 0
 
-	for pieceId := range board.pieces {
-		board.pieces[pieceId].pinnedMoveB = math.MaxUint64
-		board.pieces[pieceId].movementB = 0
+	for PieceId := range board.pieces {
+		board.pieces[PieceId].pinnedMoveB = math.MaxUint64
+		board.pieces[PieceId].movementB = 0
 	}
 	board.whitePiecePosB = board.combinePositionsOf(board.whiteIds)
 	board.blackPiecePosB = board.combinePositionsOf(board.blackIds)
@@ -138,8 +138,8 @@ func (board *Board) setMovement() {
 	board.blackPieceMovB = 0
 	// printBits(board.blackPiecePosB)
 	firstOfNewColor := true
-	for _, pieceId := range pieceIds {
-		wasLastColor = board.pieces[pieceId].isBlack == lastColor
+	for _, PieceId := range PieceIds {
+		wasLastColor = board.pieces[PieceId].isBlack == lastColor
 		// combine the position once for the last color when we change color
 		if !wasLastColor && firstOfNewColor {
 			firstOfNewColor = false
@@ -149,22 +149,22 @@ func (board *Board) setMovement() {
 				board.blackPieceMovB = board.combineMovementsOf(&board.blackIds)
 			}
 		}
-		board.pieces[pieceId].numMoves = 0
+		board.pieces[PieceId].numMoves = 0
 		// reset current movement
-		board.pieces[pieceId].movementB = 0
+		board.pieces[PieceId].movementB = 0
 		// piece is not on board
-		if board.pieces[pieceId].posB == 0 {
+		if board.pieces[PieceId].posB == 0 {
 			continue
 		}
-		switch board.pieces[pieceId].pieceType {
+		switch board.pieces[PieceId].pieceType {
 		case BISHOP, ROOK, QUEEN:
-			board.setSlidingpieceMovement(&board.pieces[pieceId], wasLastColor)
+			board.setSlidingpieceMovement(&board.pieces[PieceId], wasLastColor)
 		case KNIGHT:
-			board.setKnightMovement(&board.pieces[pieceId], wasLastColor)
+			board.setKnightMovement(&board.pieces[PieceId], wasLastColor)
 		case PAWN:
-			board.setPawnMovement(&board.pieces[pieceId], wasLastColor)
+			board.setPawnMovement(&board.pieces[PieceId], wasLastColor)
 		case KING:
-			board.setKingMovement(&board.pieces[pieceId], wasLastColor)
+			board.setKingMovement(&board.pieces[PieceId], wasLastColor)
 		}
 	}
 	// update the other color
@@ -188,8 +188,8 @@ func (board *Board) setSlidingpieceMovement(piece *Piece, wasLastColor bool) {
 	}
 	oppositeKingPos := 0
 
-	// board.isBlacksTurn is already for next move at this stage
-	if board.isBlacksTurn {
+	// board.IsBlacksTurn is already for next move at this stage
+	if board.IsBlacksTurn {
 		oppositeKingPos = board.pieces[board.blackKingId].pos
 	} else {
 		oppositeKingPos = board.pieces[board.whiteKingId].pos
@@ -207,7 +207,7 @@ func (board *Board) setSlidingpieceMovement(piece *Piece, wasLastColor bool) {
 					board.setPieceCanMoveTo(piece, pos)
 					// en passant case where the pawn of the color that just moved is in front of the other pawn that can capture it
 					// we need to disallow capturing if it would be check otherwise
-					if (board.isBlacksTurn && board.en_passant_pos == pos+8) || (!board.isBlacksTurn && board.en_passant_pos == pos-8) {
+					if (board.IsBlacksTurn && board.en_passant_pos == pos+8) || (!board.IsBlacksTurn && board.en_passant_pos == pos-8) {
 						// the en passant can be possible if it's either east or west direction
 						if dirId == WEST_ID || dirId == EAST_ID {
 							// is there a pawn of opposite color at pos+dir ?
@@ -270,7 +270,7 @@ func (board *Board) setSlidingpieceMovement(piece *Piece, wasLastColor bool) {
 							// Like i.e 8/2p5/3p4/KP5r/1R3pPk/8/4P3/8 b - g3 0 1
 							// we need to disallow en passant
 							if board.en_passant_pos != -1 {
-								if (board.isBlacksTurn && board.en_passant_pos == posKingHunt+8) || (!board.isBlacksTurn && board.en_passant_pos == posKingHunt-8) {
+								if (board.IsBlacksTurn && board.en_passant_pos == posKingHunt+8) || (!board.IsBlacksTurn && board.en_passant_pos == posKingHunt-8) {
 									enPassantCase = true
 								}
 							}
@@ -308,9 +308,9 @@ func (board *Board) setSlidingpieceMovement(piece *Piece, wasLastColor bool) {
 }
 
 func (board *Board) setBlockingSquaresIfKingAt(startPos, pos int) {
-	// board.isBlacksTurn is already for next move at this stage
+	// board.IsBlacksTurn is already for next move at this stage
 	oppositeKingPos := 0
-	if board.isBlacksTurn {
+	if board.IsBlacksTurn {
 		oppositeKingPos = board.pieces[board.blackKingId].pos
 	} else {
 		oppositeKingPos = board.pieces[board.whiteKingId].pos
@@ -477,17 +477,18 @@ func (board *Board) setKingMovement(piece *Piece, wasLastColor bool) {
 	}
 }
 
-// NewMove creates a move object given a pieceId, to and checks whether the move is a capture. If isCapture is set to true
-func (board *Board) NewMove(pieceId int, captureId int, to int, promote int) (Move, bool) {
+// NewMove creates a move object given a PieceId, to and checks whether the move is a capture. If isCapture is set to true.
+// Second return is whether we need to ask for promotion
+func (board *Board) NewMove(PieceId int, captureId int, to int, promote int) (Move, bool) {
 	needsPromotionType := false
-	from := board.pieces[pieceId].pos
+	from := board.pieces[PieceId].pos
 	if captureId != 0 {
 		to = board.pieces[captureId].pos
 	} else {
 		if board.pos2PieceId[to] != 0 { // fill capture if there is a piece on that position
 			captureId = board.pos2PieceId[to]
-		} else if to == board.en_passant_pos && board.pieces[pieceId].pieceType == PAWN {
-			if board.isBlacksTurn {
+		} else if to == board.en_passant_pos && board.pieces[PieceId].pieceType == PAWN {
+			if board.IsBlacksTurn {
 				captureId = board.pos2PieceId[to-8]
 			} else {
 				captureId = board.pos2PieceId[to+8]
@@ -495,18 +496,18 @@ func (board *Board) NewMove(pieceId int, captureId int, to int, promote int) (Mo
 		}
 	}
 	// check for promotion
-	if board.pieces[pieceId].pieceType == PAWN && promote == 0 {
+	if board.pieces[PieceId].pieceType == PAWN && promote == 0 {
 		_, y := xy(to)
-		if (y == 0 && !board.pieces[pieceId].isBlack) || (y == 7 && board.pieces[pieceId].isBlack) {
+		if (y == 0 && !board.pieces[PieceId].isBlack) || (y == 7 && board.pieces[PieceId].isBlack) {
 			needsPromotionType = true
 		}
 	}
-	return Move{pieceId: pieceId, captureId: captureId, from: from, to: to, promote: promote}, needsPromotionType
+	return Move{PieceId: PieceId, captureId: captureId, from: from, to: to, promote: promote}, needsPromotionType
 }
 
 func (board *Board) TempMove(m *Move) Move {
 	forward := NORTH
-	if board.pieces[m.pieceId].isBlack {
+	if board.pieces[m.PieceId].isBlack {
 		forward = SOUTH
 	}
 
@@ -516,37 +517,37 @@ func (board *Board) TempMove(m *Move) Move {
 		board.pieces[m.captureId].pos = -1
 		board.pieces[m.captureId].posB = 0
 	}
-	board.pieces[m.pieceId].pos = m.to
-	board.pieces[m.pieceId].posB = 1 << m.to
+	board.pieces[m.PieceId].pos = m.to
+	board.pieces[m.PieceId].posB = 1 << m.to
 	board.pos2PieceId[m.from] = 0
-	board.pos2PieceId[m.to] = m.pieceId
+	board.pos2PieceId[m.to] = m.PieceId
 	// promotion
 	if m.promote != 0 {
 		switch m.promote {
 		case -1:
-			board.pieces[m.pieceId].pieceType = 'p' // reverse promotion
+			board.pieces[m.PieceId].pieceType = 'p' // reverse promotion
 		case 1:
-			board.pieces[m.pieceId].pieceType = 'q'
+			board.pieces[m.PieceId].pieceType = 'q'
 		case 2:
-			board.pieces[m.pieceId].pieceType = 'r'
+			board.pieces[m.PieceId].pieceType = 'r'
 		case 3:
-			board.pieces[m.pieceId].pieceType = 'b'
+			board.pieces[m.PieceId].pieceType = 'b'
 		case 4:
-			board.pieces[m.pieceId].pieceType = 'n'
+			board.pieces[m.PieceId].pieceType = 'n'
 		}
 	}
 
 	board.whitePiecePosB = board.combinePositionsOf(board.whiteIds)
 	board.blackPiecePosB = board.combinePositionsOf(board.blackIds)
 
-	if board.pieces[m.pieceId].pieceType == PAWN && (m.to-m.from) == 2*forward {
+	if board.pieces[m.PieceId].pieceType == PAWN && (m.to-m.from) == 2*forward {
 		board.en_passant_pos = m.from + forward
 	} else {
 		board.en_passant_pos = -1
 	}
 
 	// check if castled
-	piece := board.pieces[m.pieceId]
+	piece := board.pieces[m.PieceId]
 	isCastle := false
 	rookMove := Move{}
 	// should not trigger for rverse castle
@@ -570,29 +571,30 @@ func (board *Board) Move(m *Move) Move {
 	rookMove := board.TempMove(m)
 
 	board.updateCastleRights(m)
-	if board.isBlacksTurn {
+	if board.IsBlacksTurn {
 		board.nextMove++
 	}
 
-	if m.captureId != 0 || board.pieces[m.pieceId].pieceType != PAWN {
+	if m.captureId != 0 || board.pieces[m.PieceId].pieceType != PAWN {
 		board.halfMoves++
 	} else {
 		board.halfMoves = 0
 	}
-	board.fens = append(board.fens, board.getFenWithoutMoves())
+	board.ply++
+	board.setHash()
 
-	board.isBlacksTurn = !board.isBlacksTurn
+	board.IsBlacksTurn = !board.IsBlacksTurn
 	board.setMovement()
 	return rookMove
 }
 
-func (board *Board) reverseMove(m *Move, boardPrimitives *BoardPrimitives) {
+func (board *Board) reverseMove(m *Move, boardPrimitives *BoardPrimitives) Move {
 	revPromoteInto := 0
 	if m.promote != 0 {
 		revPromoteInto = -1 // reverse promote back into a pawn
 	}
-	revMmove, _ := board.NewMove(m.pieceId, 0, m.from, revPromoteInto)
-	if board.pieces[m.pieceId].pieceType == KING {
+	revMmove, _ := board.NewMove(m.PieceId, 0, m.from, revPromoteInto)
+	if board.pieces[m.PieceId].pieceType == KING {
 		_, y := xy(m.from)
 		// king side
 		if m.to-m.from == 2 {
@@ -609,9 +611,9 @@ func (board *Board) reverseMove(m *Move, boardPrimitives *BoardPrimitives) {
 	board.TempMove(&revMmove)
 	if m.captureId != 0 {
 		// en passant capture
-		if boardPrimitives.en_passant_pos == m.to && board.pieces[m.pieceId].pieceType == PAWN {
+		if boardPrimitives.en_passant_pos == m.to && board.pieces[m.PieceId].pieceType == PAWN {
 			posOfCapturedPawn := 0
-			if board.pieces[m.pieceId].isBlack {
+			if board.pieces[m.PieceId].isBlack {
 				// white pawn was captured
 				posOfCapturedPawn = boardPrimitives.en_passant_pos - 8
 			} else {
@@ -634,11 +636,14 @@ func (board *Board) reverseMove(m *Move, boardPrimitives *BoardPrimitives) {
 	// resets castle and en passant rights which is important for setMovement
 	board.setBoardPrimitives(boardPrimitives)
 	board.setMovement()
+
+	board.ply--
+	return revMmove
 }
 
 func (board *Board) isLegal(m *Move) bool {
-	piece := board.pieces[m.pieceId]
-	if piece.isBlack == board.isBlacksTurn {
+	piece := board.pieces[m.PieceId]
+	if piece.isBlack == board.IsBlacksTurn {
 		return piece.canMoveTo(m.to)
 	}
 	return false
@@ -647,7 +652,7 @@ func (board *Board) isLegal(m *Move) bool {
 func (board *Board) setPieceCanMoveTo(piece *Piece, pos int) {
 	// check whether we are in check
 	// if that is the case we can only block, but if we are a king we can move out of check
-	if piece.isBlack == board.isBlacksTurn && piece.pieceType != KING {
+	if piece.isBlack == board.IsBlacksTurn && piece.pieceType != KING {
 		if board.check && !board.doubleCheck {
 			if board.blockCheckSquaresB&(1<<pos) == 0 {
 				return
@@ -666,7 +671,7 @@ func (board *Board) setPieceCanMoveTo(piece *Piece, pos int) {
 
 func (board *Board) updateCastleRights(m *Move) {
 	// if king moved remove the right for both sides
-	piece := board.pieces[m.pieceId]
+	piece := board.pieces[m.PieceId]
 	if piece.pieceType == KING {
 		if piece.isBlack {
 			board.black_castle_king = false
@@ -719,14 +724,14 @@ func (board *Board) updateCastleRights(m *Move) {
 }
 
 func (board *Board) countMaterialOfColor(isBlack bool) int {
-	pieceIds := board.whiteIds
+	PieceIds := board.whiteIds
 	if isBlack {
-		pieceIds = board.blackIds
+		PieceIds = board.blackIds
 	}
 	materialCount := 0
-	for _, pieceId := range pieceIds {
-		if board.pieces[pieceId].posB != 0 {
-			materialCount += materialCountMap[board.pieces[pieceId].pieceType]
+	for _, PieceId := range PieceIds {
+		if board.pieces[PieceId].posB != 0 {
+			materialCount += materialCountMap[board.pieces[PieceId].pieceType]
 		}
 	}
 	return materialCount

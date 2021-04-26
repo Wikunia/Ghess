@@ -37,7 +37,7 @@ func bits2array(bits uint64) [8][8]bool {
 
 func (board *Board) getBoardPrimitives() BoardPrimitives {
 	return BoardPrimitives{
-		isBlacksTurn:       board.isBlacksTurn,
+		IsBlacksTurn:       board.IsBlacksTurn,
 		white_castle_king:  board.white_castle_king,
 		white_castle_queen: board.white_castle_queen,
 		black_castle_king:  board.black_castle_king,
@@ -47,12 +47,11 @@ func (board *Board) getBoardPrimitives() BoardPrimitives {
 		nextMove:           board.nextMove,
 		whiteKingId:        board.whiteKingId,
 		blackKingId:        board.blackKingId,
-		fens:               board.fens[:],
 	}
 }
 
 func (board *Board) setBoardPrimitives(bp *BoardPrimitives) {
-	board.isBlacksTurn = bp.isBlacksTurn
+	board.IsBlacksTurn = bp.IsBlacksTurn
 	board.white_castle_king = bp.white_castle_king
 	board.white_castle_queen = bp.white_castle_queen
 	board.black_castle_king = bp.black_castle_king
@@ -62,7 +61,6 @@ func (board *Board) setBoardPrimitives(bp *BoardPrimitives) {
 	board.nextMove = bp.nextMove
 	board.whiteKingId = bp.whiteKingId
 	board.blackKingId = bp.blackKingId
-	board.fens = bp.fens[:]
 }
 
 func printBits(bits uint64) {
@@ -90,5 +88,5 @@ func makeRange(min, max int) []int {
 }
 
 func (move *Move) isEqual(m *Move) bool {
-	return move.pieceId == m.pieceId && move.from == m.from && move.captureId == m.captureId && move.to == m.to && move.promote == m.promote
+	return move.PieceId == m.PieceId && move.from == m.from && move.captureId == m.captureId && move.to == m.to && move.promote == m.promote
 }
